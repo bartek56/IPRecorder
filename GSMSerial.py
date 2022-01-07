@@ -3,7 +3,7 @@ import time
 import os
 import datetime
 import urllib
-import commands
+import sh
 
 ser = serial.Serial('/dev/ttyAMA0',19200)  # open serial port
 dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
@@ -104,9 +104,11 @@ def checkNetwork():
         return False
 
 def checkMemory():
-    rootDir = commands.getstatusoutput("df -h | grep root | awk '{print $3 \"/\" $2}'")
-    diskDir = commands.getstatusoutput("df -h | grep INTENSO | awk '{print $3 \"/\" $2}'")
-    return "External Memory: " + str(diskDir[1]) + "\n" + "Internal Memory: " + str(rootDir[1])
+    rootMemory = sh.awk( sh.grep(sh.df("-h"), "root"), "{print $3 \"/\" $2}")
+    diskMemory = sh.awk( sh.grep(sh.df("-h"), "boot/efi"), "{print $3 \"/\" $2}")
+    rootMemory = str(rootMemory).strip()
+    diskMemory = str(diskMemory).strip()
+    return ("External Memory: " + diskMemory + "\n" + "Internal Memory: " + rootMemory)
 
 def checkStatus():
     info = ""
