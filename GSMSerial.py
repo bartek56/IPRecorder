@@ -8,6 +8,8 @@ import sh
 dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
 dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
 
+ADMIN_NUMBER=999999999
+USER_NUMBER=999999999
 
 class GSMSerial:
 
@@ -54,10 +56,10 @@ class GSMSerial:
             self.serialGSM.write(b'\x1a')
 
     def sendSMSAdmin(self, text):
-        self.sendSMS(999999999, text)
+        self.sendSMS(ADMIN_NUMBER, text)
 
     def sendSMSUser(self, text):
-        self.sendSMS(999999999, text)
+        self.sendSMS(USER_NUMBER, text)
     
     def readMessages(self):
     # NB: for PySerial v3.0 or later, use property `in_waiting` instead of function `inWaiting()` below!
@@ -78,9 +80,6 @@ class GSMSerial:
                 self.sendSMSAdmin("somebody call to me: \n" + data_str)
 #            elif('AT+' not in data_str):
 #                sendSMSAdmin("I don't understand \n" + data_str)
-
-
-    
 
 
     def GSMLog(self, info):
@@ -134,7 +133,7 @@ def checkNetwork():
 
 def checkMemory():
     rootMemory = sh.awk( sh.grep(sh.df("-h"), "root"), "{print $3 \"/\" $2}")
-    diskMemory = sh.awk( sh.grep(sh.df("-h"), "boot/efi"), "{print $3 \"/\" $2}")
+    diskMemory = sh.awk( sh.grep(sh.df("-h"), "INTENSO"), "{print $3 \"/\" $2}")
     rootMemory = str(rootMemory).strip()
     diskMemory = str(diskMemory).strip()
     return ("External Memory: " + diskMemory + "\n" + "Internal Memory: " + rootMemory)
@@ -174,7 +173,7 @@ def main():
     countFilesAltanka = getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
     
     while (True):
-
+        gsm.readMessages()
         if (counter > 20):
             counter=0
             newTheNewestDirAltanka = getTheNewestDayDir(dirNameAltanka)
