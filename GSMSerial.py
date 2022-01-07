@@ -13,7 +13,7 @@ USER_NUMBER=999999999
 
 
 class IpRecorderStatus:
-    def __init__(self) -> None:
+    def __init__(self):
         pass
 
     def checkNetwork(self):
@@ -47,8 +47,8 @@ class IpRecorderStatus:
 
 class GSMSerial:
     ipRecorderStatus = IpRecorderStatus()
-    #serialGSM = serial.Serial('/dev/ttyAMA0',19200)  # open serial port   
-    serialGSM = serial.Serial('/dev/virtualcom0',19200)  # open serial port   
+    serialGSM = serial.Serial('/dev/ttyAMA0',19200)  # open serial port   
+    #serialGSM = serial.Serial('/dev/virtualcom0',19200)  # open serial port   
     def __init__(self):
         print("init")
         commend1='AT\r\n'
@@ -136,7 +136,7 @@ class Alarm:
         else:
             return 0
 
-    def getListOfFiles(dirName):
+    def getListOfFiles(self, dirName):
         if os.path.isdir(dirName):
             listOfFiles = list()
             for (dirpath, dirnames, filenames) in os.walk(dirName):
