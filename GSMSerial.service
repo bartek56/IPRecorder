@@ -1,0 +1,12 @@
+[Unit]
+Description=GSM Serial Service
+After=rc-local.service
+
+[Service]
+#Type=single
+Restart=always
+RestartSec=1800s
+ExecStart=/usr/bin/python /etc/scripts/GSMSerial.py
+
+[Install]
+WantedBy=multi-user.target
