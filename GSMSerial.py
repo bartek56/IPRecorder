@@ -101,6 +101,7 @@ class GSMSerial:
             #data_str = ser.read(ser.inWaiting()).decode('ascii') #read the bytes and convert from binary array to ASCII
             data_str = self.serialGSM.read(self.serialGSM.inWaiting())
             self.GSMLog(data_str)
+            global ALARMON
             if('ALARMOFF' in data_str):
                 ALARMON=False
                 self.sendSMSUser("Wylaczono ALARM")
@@ -156,7 +157,8 @@ class Alarm:
 
 
 def main():
-    ALARMON = False
+    global ALARMON
+    ALARMON=False
     gsm = GSMSerial()
     time.sleep(3)
     alarm = Alarm()
@@ -196,7 +198,7 @@ def main():
 
             if(newCountFilesAltanka-countFilesAltanka>2):
                 info = "ALARM ALTANKA"
-                if(ALARMON==True):
+                if (ALARMON):
                     gsm.sendSMSUser(info)
                 alarm.alarmLog(info)
             countFilesAltanka=newCountFilesAltanka
@@ -209,7 +211,7 @@ def main():
 
             if(newCountFilesBrama-countFilesBrama>2):
                 info = "ALARM BRAMA"
-                if(ALARMON==True):
+                if(ALARMON):
                     gsm.sendSMSUser(info)
                 alarm.alarmLog(info)
             countFilesBrama=newCountFilesBrama
