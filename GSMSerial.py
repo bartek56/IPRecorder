@@ -80,6 +80,7 @@ class GSMSerial:
 
     def sendSMS(self, number, text):
         commend='AT+CMGS="' + str(number) + '"\r\n'
+        self.GSMLog("sending SMS \""+ text + "\" to " + str(number))
         self.serialGSM.write(commend.encode())
         while self.serialGSM.inWaiting()<=1:
             time.sleep(0.04)
@@ -119,6 +120,7 @@ class GSMSerial:
         date_time = datetime.datetime.now().strftime("%Y/%m/%d, %H:%M:%S")
         answer = date_time + ": " + info + '\n'
         file = open("/var/log/GSMSerial.log",'a')
+        #print(answer)
         file.writelines(answer)
         file.close()
  
@@ -149,6 +151,7 @@ class Alarm:
         date_time = datetime.datetime.now().strftime("%Y/%m/%d, %H:%M:%S")
         answer = date_time + ": " + info + '\n'
         file = open("/var/log/Alarm.log",'a')
+        #print(answer)
         file.writelines(answer)
         file.close()
 
