@@ -50,7 +50,6 @@ class GSMSerial:
     serialGSM = serial.Serial('/dev/ttyAMA0',19200)  # open serial port   
     #serialGSM = serial.Serial('/dev/virtualcom0',19200)  # open serial port   
     def __init__(self):
-        print("init")
         commend1='AT\r\n'
         self.serialGSM.write(commend1.encode())
         while self.serialGSM.inWaiting() <= 1:
