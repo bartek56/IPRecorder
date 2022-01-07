@@ -189,9 +189,6 @@ def main():
                 countFilesAltanka = 0
                 theNewestDirAltanka=newTheNewestDirAltanka
             newCountFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
-            if(newCountFilesAltanka == 0):
-                gsm.sendSMSAdmin("Error with Disk")
-                exit()
 
             if(newCountFilesAltanka-countFilesAltanka==2): # come in to loop, when somebody come in to possesion
                 time.sleep(1.5)
