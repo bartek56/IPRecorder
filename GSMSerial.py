@@ -10,7 +10,7 @@ dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
 
 ADMIN_NUMBER=999999999
 USER_NUMBER=999999999
-
+SMSDir = "/etc/scripts/SMS"
 
 class IpRecorderStatus:
     def __init__(self):
@@ -50,6 +50,7 @@ class GSMSerial:
     serialGSM = serial.Serial('/dev/ttyAMA0',19200)  # open serial port   
     #serialGSM = serial.Serial('/dev/virtualcom0',19200)  # open serial port   
     def __init__(self):
+        self.readyToSMS = False
         commend1='AT\r\n'
         self.serialGSM.write(commend1.encode())
         while self.serialGSM.inWaiting() <= 1:
@@ -94,7 +95,7 @@ class GSMSerial:
 
     def sendSMSUser(self, text):
         self.sendSMS(USER_NUMBER, text)
-    
+
     def readMessages(self):
         if (self.serialGSM.inWaiting()>0): #if incoming bytes are waiting to be read from the serial input buffer
             # NB: for PySerial v3.0 or later, use property `in_waiting` instead of function `inWaiting()` below!
@@ -113,7 +114,11 @@ class GSMSerial:
                 self.sendSMSAdmin(status)
             elif('+CLIP:' in data_str):
                 self.sendSMSAdmin("somebody call to me: \n" + data_str)
-                #elif('AT+' not in data_str):
+            elif('+CMGS:' in data_str):
+                self.readyToSMS=True
+            elif('ERROR' in data_str):
+                self.readyToSMS=True
+            #elif('AT+' not in data_str):
                 #sendSMSAdmin("I don't understand \n" + data_str)
 
     def GSMLog(self, info):
@@ -156,6 +161,30 @@ class Alarm:
         file.close()
 
 
+def splitSMS(fileAA):
+    file = open(fileAA,"r")
+    longSMS = file.read()
+    file.close()
+    SMSList = []
+    smsTemp = ""
+    for x in range(len(longSMS)):
+        if x%150==0 and x>0:
+            SMSList.append(smsTemp)
+            smsTemp = ""
+        else:
+            smsTemp += longSMS[x]
+    SMSList.append(smsTemp)
+
+    i=1
+    for message in SMSList:
+        fileName="%s_%i"%(fileAA,i)
+        newFile = open(fileName,"w")
+        newFile.write(message)
+        newFile.close()
+        i+=1
+
+    os.remove(fileAA)
+
 def main():
     global ALARMON
     ALARMON=False
@@ -176,6 +205,7 @@ def main():
     countFilesBrama = alarm.getListOfFiles(dirNameBrama+'/'+theNewestDirBrama)
     countFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
     print("Ready")
+    gsm.readyToSMS=True
     while (True):
         gsm.readMessages()
         if (counter > 20):
@@ -215,13 +245,22 @@ def main():
         
         counter=counter+1
        
-        if(os.path.exists("/etc/scripts/SMS.txt")):
-            file = open("/etc/scripts/SMS.txt","r")
-            text = file.read()
-            file.close()
-            gsm.sendSMSAdmin(text)
-            os.remove("/etc/scripts/SMS.txt")
-        
+        if gsm.readyToSMS:
+            listSMSFiles = os.listdir(SMSDir)
+            for x in listSMSFiles:
+                smsFile = os.path.join(SMSDir, x)
+                file = open(smsFile,"r")
+                text = file.read()
+                file.close()
+                if len(text) > 150:
+                    splitSMS(smsFile)
+                    continue
+                gsm.sendSMSAdmin(text)
+                os.remove(smsFile)
+                gsm.readyToSMS=False
+                break # next sms on other cycle, when GSM will ready to SMS    
+
+     
         time.sleep(0.5)
 
 if __name__ == '__main__':

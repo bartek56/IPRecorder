@@ -43,10 +43,10 @@ if __name__ == "__main__":
         devices += ip
         devices += " "
         devices += mac
-        devices += " "
+        devices += "\n"
 
     if len(devices) > 1:
-        fileSMS = open("/etc/scripts/SMS.txt","w")
+        fileSMS = open("/etc/scripts/SMS/SMSNetwork","w")
         fileSMS.write("new device in Network:")
         fileSMS.write(devices)
         fileSMS.close()
