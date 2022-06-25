@@ -5,6 +5,7 @@ import os
 from NotificationManager import NotificationManager
 from Alarm import Alarm
 from Logger import Logger
+from Logger import LogLevel
 
 dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
 dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
@@ -19,7 +20,6 @@ class Killer:
     
     def exit_gracefully(self, *args):
         self.kill_now = True
-
 
 def splitSMS(fileAA):
     file = open(fileAA,"r")
@@ -48,7 +48,7 @@ def splitSMS(fileAA):
 def main():
     killer = Killer()
 
-    Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log",saveToFile=True,showFilename=True)
+    Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log", saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
     
     readyToNotifyBrama = True
     readyToNotifyAltanka = True
@@ -105,7 +105,7 @@ def main():
                     elif alarmLevelAltanka <= 8:
                         info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
                     elif alarmLevelAltanka > 8:
-                        info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duży ruch"
+                        info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duzy ruch"
                     notificationManager.sendSMSNotification(info)
                     readyToNotifyAltanka = False
                     alarmLevelAltanka=0
