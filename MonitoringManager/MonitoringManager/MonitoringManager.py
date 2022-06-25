@@ -1,8 +1,6 @@
-import serial
 import signal
 import time
 import os
-import sh
 
 from NotificationManager import NotificationManager
 from Alarm import Alarm
@@ -51,17 +49,23 @@ def main():
     killer = Killer()
 
     Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log",saveToFile=True,showFilename=True)
-    global ALARMON
-    ALARMON=False
+    
+    readyToNotifyBrama = True
+    readyToNotifyAltanka = True
+
     notificationManager = NotificationManager("/etc/scripts/active_users.txt")
     alarm = Alarm()
-    counter=0
-    counterAltanka=0
-    counterBrama=0
+    counter10s=0
+    counter3min=0
     countFilesBrama=0
     countFilesAltanka=0
+
+    alarmLevelBrama=0
+    alarmLevelAltanka=0
+
     theNewestDirAltanka = alarm.getTheNewestDayDir(dirNameAltanka)
     if(theNewestDirAltanka == 0): 
+        Logger.ERROR("Error with Disk")
         notificationManager.sendSMSAdmin("Error with Disk")
         exit()
 
@@ -71,25 +75,45 @@ def main():
     Logger.INFO("Ready")
     while not killer.kill_now:
         notificationManager.readAT()
-        if (counter > 20):
-            counter=0
+        if (counter10s >= 20): # 10s
+            counter10s=0
+            counter3min+=1
+            if(counter3min >= 18): # 18 x 10s = 3min
+                counter3min = 0
+                readyToNotifyAltanka = True
+                readyToNotifyBrama = True
+
             newTheNewestDirAltanka = alarm.getTheNewestDayDir(dirNameAltanka)
             if(newTheNewestDirAltanka == 0):
+                Logger.ERROR("Error with Disk")
                 notificationManager.sendSMSAdmin("Error with Disk")
-                exit()
+                break
 
             if (newTheNewestDirAltanka!= theNewestDirAltanka):  #new directory -> new day
                 countFilesAltanka = 0
                 theNewestDirAltanka=newTheNewestDirAltanka
             newCountFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
 
-            if(newCountFilesAltanka-countFilesAltanka==2): # come in to loop, when somebody come in to possesion
-                time.sleep(1.5)
 
-            if(newCountFilesAltanka-countFilesAltanka>2):
-                info = "ALARM ALTANKA"
+            if(newCountFilesAltanka-countFilesAltanka>2 or alarmLevelAltanka>0):
+                info = "Nope"
+                if readyToNotifyAltanka:
+                    if alarmLevelAltanka <= 1:
+                        info="ALARM ALTANKA"
+                    elif alarmLevelAltanka <= 4:
+                        info="ALARM ALTANKA - ponownie"
+                    elif alarmLevelAltanka <= 8:
+                        info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
+                    elif alarmLevelAltanka > 8:
+                        info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duży ruch"
+                    notificationManager.sendSMSNotification(info)
+                    readyToNotifyAltanka = False
+                    alarmLevelAltanka=0
+                else:
+                    info = "ALARM ALTANKA - log level +1"
+                    alarmLevelAltanka+=1
+
                 Logger.INFO(info)
-                notificationManager.sendSMSNotification(info)
                 alarm.alarmLog(info)
             countFilesAltanka=newCountFilesAltanka
 
@@ -99,14 +123,29 @@ def main():
                 theNewestDirBrama=newTheNewestDirBrama
             newCountFilesBrama = alarm.getListOfFiles(dirNameBrama+'/'+theNewestDirBrama)
 
-            if(newCountFilesBrama-countFilesBrama>2):
-                info = "ALARM BRAMA"
+            if(newCountFilesBrama-countFilesBrama>2 or alarmLevelBrama>0):
+                info = "Nope"
+                if readyToNotifyBrama:
+                    if alarmLevelBrama <= 1:
+                        info="ALARM BRAMA"
+                    elif alarmLevelBrama <= 4:
+                        info="ALARM BRAMA - ponownie"
+                    elif alarmLevelBrama <= 8:
+                        info="ALARM BRAMA - ktos nadal sie wluczy po podworku"
+                    elif alarmLevelBrama > 8:
+                        info="ALARM BRAMA - robisz impreze, czy co ? bardzo duzy ruch"
+                    notificationManager.sendSMSNotification(info)
+                    readyToNotifyBrama = False
+                    alarmLevelBrama=0
+                else:
+                    info = "ALARM BRAMA - log Level +1"
+                    alarmLevelBrama+=1
+
                 Logger.INFO(info)
-                notificationManager.sendSMSNotification(info)
                 alarm.alarmLog(info)
             countFilesBrama=newCountFilesBrama
         
-        counter=counter+1
+        counter10s=counter10s+1
        
         if notificationManager.readyToSMS:
             listSMSFiles = os.listdir(SMSDir)
@@ -125,7 +164,7 @@ def main():
      
         time.sleep(0.5)
 
-    notificationManager.phoneContacts.SaveToFile()
+#    notificationManager.phoneContacts.SaveToFile()
     notificationManager.saveToFile()
     Logger.INFO("exit program")
 
