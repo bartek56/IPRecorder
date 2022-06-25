@@ -3,10 +3,10 @@ Description=GSM Serial Service
 After=rc-local.service
 
 [Service]
-#Type=single
+Type=single
 Restart=always
 RestartSec=1800s
-ExecStart=/usr/bin/python /etc/scripts/GSMSerial.py
+ExecStart=/usr/bin/python3 -u /etc/scripts/MonitoringManager/MonitoringManager/MonitoringManager.py
 
 [Install]
 WantedBy=multi-user.target
