@@ -65,6 +65,9 @@ def main():
     alarmLevelBrama=0
     alarmLevelAltanka=0
 
+    alarmLevelBramaActive=False
+    alarmLevelAltankaActive=False
+
     theNewestDirAltanka = alarm.getTheNewestDayDir(dirNameAltanka)
     if(theNewestDirAltanka == 0): 
         Logger.ERROR("Error with Disk")
@@ -99,24 +102,27 @@ def main():
                 theNewestDirAltanka=newTheNewestDirAltanka
             newCountFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
 
-
-            if(newCountFilesAltanka-countFilesAltanka>2 or alarmLevelAltanka>0):
-                info = "Nope"
-                if readyToNotifyAltanka:
-                    if alarmLevelAltanka <= 1:
-                        info="ALARM ALTANKA"
-                    elif alarmLevelAltanka <= 4:
-                        info="ALARM ALTANKA - ponownie"
-                    elif alarmLevelAltanka <= 8:
-                        info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
-                    elif alarmLevelAltanka > 8:
-                        info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duzy ruch"
-                    notificationManager.sendSMSNotification(info)
-                    readyToNotifyAltanka = False
-                    alarmLevelAltanka=0
-                else:
+            if(newCountFilesAltanka-countFilesAltanka>2):
+                alarmLevelAltankaActive = True
+                if not readyToNotifyAltanka:
                     info = "ALARM ALTANKA - log level +1"
                     alarmLevelAltanka+=1
+                    Logger.INFO(info)
+                    alarm.alarmLog(info)
+           
+            if readyToNotifyAltanka and alarmLevelAltankaActive:
+                alarmLevelAltankaActive = False
+                if alarmLevelAltanka <= 1:
+                    info="ALARM ALTANKA"
+                elif alarmLevelAltanka <= 4:
+                    info="ALARM ALTANKA - ponownie"
+                elif alarmLevelAltanka <= 8:
+                    info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
+                elif alarmLevelAltanka > 8:
+                    info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duzy ruch"
+                notificationManager.sendSMSNotification(info)
+                readyToNotifyAltanka = False
+                alarmLevelAltanka=0
 
                 Logger.INFO(info)
                 alarm.alarmLog(info)
@@ -128,24 +134,26 @@ def main():
                 theNewestDirBrama=newTheNewestDirBrama
             newCountFilesBrama = alarm.getListOfFiles(dirNameBrama+'/'+theNewestDirBrama)
 
-            if(newCountFilesBrama-countFilesBrama>2 or alarmLevelBrama>0):
-                info = "Nope"
-                if readyToNotifyBrama:
-                    if alarmLevelBrama <= 1:
-                        info="ALARM BRAMA"
-                    elif alarmLevelBrama <= 4:
-                        info="ALARM BRAMA - ponownie"
-                    elif alarmLevelBrama <= 8:
-                        info="ALARM BRAMA - ktos nadal sie wluczy po podworku"
-                    elif alarmLevelBrama > 8:
-                        info="ALARM BRAMA - robisz impreze, czy co ? bardzo duzy ruch"
-                    notificationManager.sendSMSNotification(info)
-                    readyToNotifyBrama = False
-                    alarmLevelBrama=0
-                else:
+            if(newCountFilesBrama-countFilesBrama>2):
+                alarmLevelBramaActive = True
+                if not readyToNotifyBrama:
                     info = "ALARM BRAMA - log Level +1"
                     alarmLevelBrama+=1
-
+        
+            if readyToNotifyBrama and alarmLevelBramaActive:
+                alarmLevelBramaActive = False
+                if alarmLevelBrama <= 1:
+                    info="ALARM BRAMA"
+                elif alarmLevelBrama <= 4:
+                    info="ALARM BRAMA - ponownie"
+                elif alarmLevelBrama <= 8:
+                    info="ALARM BRAMA - ktos nadal sie wluczy po podworku"
+                elif alarmLevelBrama > 8:
+                    info="ALARM BRAMA - robisz impreze, czy co ? bardzo duzy ruch"
+                notificationManager.sendSMSNotification(info)
+                readyToNotifyBrama = False
+                alarmLevelBrama=0
+                    
                 Logger.INFO(info)
                 alarm.alarmLog(info)
             countFilesBrama=newCountFilesBrama
