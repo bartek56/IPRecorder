@@ -56,8 +56,8 @@ def main():
     readyToNotifyBrama = True
     readyToNotifyAltanka = True
     
-    counter10s=0
-    counter2min=0
+    counter6s=0
+    counter1min=0
     
     countFilesBrama=0
     countFilesAltanka=0
@@ -80,14 +80,14 @@ def main():
     Logger.INFO("Ready")
     while not killer.kill_now:
         notificationManager.readAT()
-        if (counter10s >= 20): # 10s
-            Logger.DEBUG("10 sec")
-            counter10s=0
+        if (counter6s >= 12): # 12 x 0.5s = 6s
+            Logger.DEBUG("6 sec")
+            counter6s=0
             if not readyToNotifyAltanka or not readyToNotifyBrama:
-                counter2min+=1
-                if(counter2min >= 12): # 12 x 10s = 2min
-                    Logger.DEBUG("2 min")
-                    counter2min = 0
+                counter1min+=1
+                if(counter1min >= 10): # 10 x 6s = 1min
+                    Logger.DEBUG("1 min")
+                    counter1min = 0
                     readyToNotifyAltanka = True
                     readyToNotifyBrama = True
 
@@ -102,7 +102,7 @@ def main():
                 theNewestDirAltanka=newTheNewestDirAltanka
             newCountFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
 
-            if(newCountFilesAltanka-countFilesAltanka>2):
+            if(newCountFilesAltanka-countFilesAltanka>=3):
                 alarmLevelAltankaActive = True
                 if not readyToNotifyAltanka:
                     info = "ALARM ALTANKA - log level +1"
@@ -114,9 +114,9 @@ def main():
                 alarmLevelAltankaActive = False
                 if alarmLevelAltanka <= 1:
                     info="ALARM ALTANKA"
-                elif alarmLevelAltanka <= 5:
+                elif alarmLevelAltanka <= 4:
                     info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
-                elif alarmLevelAltanka > 5:
+                elif alarmLevelAltanka > 4:
                     info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duzy ruch"
                 notificationManager.sendSMSNotification(info)
                 readyToNotifyAltanka = False
@@ -132,7 +132,7 @@ def main():
                 theNewestDirBrama=newTheNewestDirBrama
             newCountFilesBrama = alarm.getListOfFiles(dirNameBrama+'/'+theNewestDirBrama)
 
-            if(newCountFilesBrama-countFilesBrama>2):
+            if(newCountFilesBrama-countFilesBrama>=2):
                 alarmLevelBramaActive = True
                 if not readyToNotifyBrama:
                     info = "ALARM BRAMA - log Level +1"
@@ -142,9 +142,9 @@ def main():
                 alarmLevelBramaActive = False
                 if alarmLevelBrama <= 1:
                     info="ALARM BRAMA"
-                elif alarmLevelBrama <= 5:
+                elif alarmLevelBrama <= 4:
                     info="ALARM BRAMA - ktos nadal sie wluczy po podworku"
-                elif alarmLevelBrama > 5:
+                elif alarmLevelBrama > 4:
                     info="ALARM BRAMA - robisz impreze, czy co ? bardzo duzy ruch"
                 notificationManager.sendSMSNotification(info)
                 readyToNotifyBrama = False
@@ -154,7 +154,7 @@ def main():
                 alarm.alarmLog(info)
             countFilesBrama=newCountFilesBrama
         
-        counter10s=counter10s+1
+        counter6s=counter6s+1
        
         if notificationManager.readyToSMS:
             listSMSFiles = os.listdir(SMSDir)
