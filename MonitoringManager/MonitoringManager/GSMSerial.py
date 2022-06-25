@@ -1,7 +1,6 @@
 import serial
 import time
 import os
-import datetime
 import urllib.request
 import sh
 from Logger import Logger
@@ -42,9 +41,7 @@ class IpRecorderStatus:
         else:
             return info
 
-
 class GSMSerial:
-#    ipRecorderStatus = IpRecorderStatus()
     #serialGSM = serial.Serial('/dev/virtualcom0',19200)  # open serial port   
     def __init__(self):
         self.serialGSM = serial.Serial('/dev/ttyAMA0',19200)  # open serial port   
@@ -88,50 +85,15 @@ class GSMSerial:
             self.serialGSM.write(text.encode()) #\x1a
             self.serialGSM.write(bytes(b'\x1a'))
 
-#    def sendSMSAdmin(self, text):
-#        self.sendSMS(ADMIN_NUMBER, text)
-
-#    def sendSMSUser(self, text):
-#        self.sendSMS(USER_NUMBER, text)
-
     def readMessages(self):
         if (self.serialGSM.inWaiting()>0): #if incoming bytes are waiting to be read from the serial input buffer
             # NB: for PySerial v3.0 or later, use property `in_waiting` instead of function `inWaiting()` below!
             #data_str = ser.read(ser.inWaiting()).decode('ascii') #read the bytes and convert from binary array to ASCII
             data_str = self.serialGSM.read(self.serialGSM.inWaiting())
-#            self.GSMLog(data_str)
             data_str = data_str.decode("utf-8")
             Logger.INFO(data_str)
             return data_str
-
         return None    
-#            global ALARMON
-#            if('ALARMOFF' in data_str):
-#                ALARMON=False
-#                self.sendSMSUser("Wylaczono ALARM")
-#            elif('ALARMON' in data_str):
-#                ALARMON=True
-#                self.sendSMSUser("Wlaczono ALARM")
-#            elif('STATUS' in data_str):
-#                status = self.ipRecorderStatus.checkStatus()
-#                self.sendSMSAdmin(status)
-#            elif('+CLIP:' in data_str):
-#                self.sendSMSAdmin("somebody call to me: \n" + data_str)
-#            elif('+CMGS:' in data_str):
-#                self.readyToSMS=True
-#            elif('ERROR' in data_str):
-#                self.readyToSMS=True
-            #elif('AT+' not in data_str):
-                #sendSMSAdmin("I don't understand \n" + data_str)
-
-    def GSMLog(self, info):
-        date_time = datetime.datetime.now().strftime("%Y/%m/%d, %H:%M:%S")
-        answer = date_time + ": " + info + '\n'
-        file = open("/var/log/GSMSerial.log",'a')
-        #print(answer)
-        file.writelines(answer)
-        file.close()
- 
 
 if __name__ == '__main__':
     print("GSMSerial")

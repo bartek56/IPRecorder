@@ -2,7 +2,6 @@ import os
 import time
 
 from Contacts import Contacts
-
 from GSMSerial import GSMSerial, IpRecorderStatus
 #from mailManager import Mail
 from Logger import Logger
@@ -68,7 +67,7 @@ class NotificationManager():
             index+=1    
         
         if(contactExist):
-            Logger.WARNING("Contact", name, surname, " removed from active list")
+            Logger.INFO("Contact", name, surname, " removed from active list")
             self.usersList.pop(index)
         else:
             Logger.WARNING("Contact", name, surname, "not exist in active list")
@@ -99,10 +98,8 @@ class NotificationManager():
     def sendSMS(self, number, message):        
         self.gsmSerial.sendSMS(number, message)
 
-
     def sendSMSAdmin(self, message):        
         self.gsmSerial.sendSMS(self.adminNumber, message)
-    
 
     def checkSender(self, data_str):
         dataStrTemp = data_str
@@ -151,8 +148,6 @@ class NotificationManager():
                 #sendSMSAdmin("I don't understand \n" + data_str)
 
 
-if __name__ == "__main__":
-    notificationManager = NotificationManager()
-
-
+#if __name__ == "__main__":
+#    notificationManager = NotificationManager()
 #    notificationManager.sendMailNotification("IPRecorder","Hello World")

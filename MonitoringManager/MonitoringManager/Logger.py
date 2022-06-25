@@ -89,5 +89,7 @@ class SimpleLogger():
         self.showLogLevel = showLogLevel
         self.logLevel = logLevel
         self.isPrinting = print
+        if not saveToFile and not print:
+            print(bcolors.ERROR + "printing and saving to file is DISABLE !!!", bcolors.ENDC)
 
 Logger = SimpleLogger()

@@ -50,13 +50,15 @@ def main():
 
     Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log", saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
     
-    readyToNotifyBrama = True
-    readyToNotifyAltanka = True
-
     notificationManager = NotificationManager("/etc/scripts/active_users.txt")
     alarm = Alarm()
+
+    readyToNotifyBrama = True
+    readyToNotifyAltanka = True
+    
     counter10s=0
     counter3min=0
+    
     countFilesBrama=0
     countFilesAltanka=0
 
@@ -76,12 +78,15 @@ def main():
     while not killer.kill_now:
         notificationManager.readAT()
         if (counter10s >= 20): # 10s
+            Logger.DEBUG("10 sec")
             counter10s=0
-            counter3min+=1
-            if(counter3min >= 18): # 18 x 10s = 3min
-                counter3min = 0
-                readyToNotifyAltanka = True
-                readyToNotifyBrama = True
+            if not readyToNotifyAltanka or not readyToNotifyBrama:
+                counter3min+=1
+                if(counter3min >= 18): # 18 x 10s = 3min
+                    Logger.DEBUG("3 min")
+                    counter3min = 0
+                    readyToNotifyAltanka = True
+                    readyToNotifyBrama = True
 
             newTheNewestDirAltanka = alarm.getTheNewestDayDir(dirNameAltanka)
             if(newTheNewestDirAltanka == 0):
