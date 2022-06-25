@@ -1,6 +1,7 @@
 import datetime
 import inspect
 from enum import Enum
+from pydoc import ispackage
 
 class bcolors:
     WARNING = '\033[93m'
@@ -8,31 +9,42 @@ class bcolors:
     ENDC = '\033[0m'
 
 class LogLevel(Enum):
-    ERROR = 3
-    WARNING = 2
-    INFO = 1
+    DEBUG = 1
+    INFO = 2
+    WARNING = 3
+    ERROR = 4
 
 class SimpleLogger():
     def __init__(self):
         self.settings()
 
+    def DEBUG(self, *args):
+        if self.logLevel.value <= LogLevel.DEBUG.value:
+            log = self.getLog("DEBUG", args)
+            self.writeToFile(log)
+            if self.isPrinting:
+                print(log)
+
     def INFO(self, *args):
         if self.logLevel.value <= LogLevel.INFO.value:
             log = self.getLog("INFO", args)
             self.writeToFile(log)
-            print(log)
+            if self.isPrinting:
+                print(log)
 
     def WARNING(self, *args):
         if self.logLevel.value <= LogLevel.WARNING.value:
             log = self.getLog("WARNING", args)
             self.writeToFile(log)
-            print(bcolors.WARNING + log, bcolors.ENDC)
+            if self.isPrinting:
+                print(bcolors.WARNING + log, bcolors.ENDC)
 
     def ERROR(self, *args):        
-        if self.logLevel.value <= LogLevel.WARNING.value:
+        if self.logLevel.value <= LogLevel.ERROR.value:
             log = self.getLog("ERROR", args)
             self.writeToFile(log)
-            print(bcolors.ERROR + log, bcolors.ENDC)
+            if self.isPrinting:
+                print(bcolors.ERROR + log, bcolors.ENDC)
 
     def getLog(self, level, args):
         log = self.getTime()
@@ -70,11 +82,12 @@ class SimpleLogger():
             f.write("\n")
             f.close()
 
-    def settings(self, logLevel = LogLevel.INFO, showFilename=True, showLogLevel=True, saveToFile=False, fileNameWihPath="logger.log"):
+    def settings(self, logLevel = LogLevel.INFO, showFilename=True, showLogLevel=True, print=True, saveToFile=False, fileNameWihPath="logger.log"):
         self.isSaveToFileEnable = saveToFile
         self.fileNameWithPath = fileNameWihPath
         self.showFilename = showFilename
         self.showLogLevel = showLogLevel
         self.logLevel = logLevel
+        self.isPrinting = print
 
 Logger = SimpleLogger()
