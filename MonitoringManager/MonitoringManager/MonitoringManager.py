@@ -57,7 +57,7 @@ def main():
     readyToNotifyAltanka = True
     
     counter10s=0
-    counter3min=0
+    counter2min=0
     
     countFilesBrama=0
     countFilesAltanka=0
@@ -84,10 +84,10 @@ def main():
             Logger.DEBUG("10 sec")
             counter10s=0
             if not readyToNotifyAltanka or not readyToNotifyBrama:
-                counter3min+=1
-                if(counter3min >= 18): # 18 x 10s = 3min
-                    Logger.DEBUG("3 min")
-                    counter3min = 0
+                counter2min+=1
+                if(counter2min >= 12): # 12 x 10s = 2min
+                    Logger.DEBUG("2 min")
+                    counter2min = 0
                     readyToNotifyAltanka = True
                     readyToNotifyBrama = True
 
@@ -114,11 +114,9 @@ def main():
                 alarmLevelAltankaActive = False
                 if alarmLevelAltanka <= 1:
                     info="ALARM ALTANKA"
-                elif alarmLevelAltanka <= 4:
-                    info="ALARM ALTANKA - ponownie"
-                elif alarmLevelAltanka <= 8:
+                elif alarmLevelAltanka <= 5:
                     info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
-                elif alarmLevelAltanka > 8:
+                elif alarmLevelAltanka > 5:
                     info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duzy ruch"
                 notificationManager.sendSMSNotification(info)
                 readyToNotifyAltanka = False
@@ -144,11 +142,9 @@ def main():
                 alarmLevelBramaActive = False
                 if alarmLevelBrama <= 1:
                     info="ALARM BRAMA"
-                elif alarmLevelBrama <= 4:
-                    info="ALARM BRAMA - ponownie"
-                elif alarmLevelBrama <= 8:
+                elif alarmLevelBrama <= 5:
                     info="ALARM BRAMA - ktos nadal sie wluczy po podworku"
-                elif alarmLevelBrama > 8:
+                elif alarmLevelBrama > 5:
                     info="ALARM BRAMA - robisz impreze, czy co ? bardzo duzy ruch"
                 notificationManager.sendSMSNotification(info)
                 readyToNotifyBrama = False
