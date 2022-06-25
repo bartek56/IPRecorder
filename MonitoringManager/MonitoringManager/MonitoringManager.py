@@ -3,7 +3,7 @@ import time
 import os
 
 from NotificationManager import NotificationManager
-from Alarm import Alarm
+from CameraAnalyzer import CameraAnalyzer
 from Logger import Logger
 from Logger import LogLevel
 
@@ -49,34 +49,22 @@ def main():
     killer = Killer()
 
     Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log", saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
-    
     notificationManager = NotificationManager("/etc/scripts/active_users.txt")
-    alarm = Alarm()
-
-    readyToNotifyBrama = True
-    readyToNotifyAltanka = True
-    
+   
     counter6s=0
     counter1min=0
     
-    countFilesBrama=0
-    countFilesAltanka=0
+    readyToNotifyBrama = True
+    readyToNotifyAltanka = True
+    cameraAltanka = CameraAnalyzer(dirNameAltanka, "ALTANKA")
+    cameraBrama = CameraAnalyzer(dirNameBrama, "BRAMA")
 
-    alarmLevelBrama=0
-    alarmLevelAltanka=0
-
-    alarmLevelBramaActive=False
-    alarmLevelAltankaActive=False
-
-    theNewestDirAltanka = alarm.getTheNewestDayDir(dirNameAltanka)
+    theNewestDirAltanka = cameraAltanka.getTheNewestDayDir(dirNameAltanka)
     if(theNewestDirAltanka == 0): 
         Logger.ERROR("Error with Disk")
         notificationManager.sendSMSAdmin("Error with Disk")
         exit()
 
-    theNewestDirBrama = alarm.getTheNewestDayDir(dirNameBrama)
-    countFilesBrama = alarm.getListOfFiles(dirNameBrama+'/'+theNewestDirBrama)
-    countFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
     Logger.INFO("Ready")
     while not killer.kill_now:
         notificationManager.readAT()
@@ -91,69 +79,25 @@ def main():
                     readyToNotifyAltanka = True
                     readyToNotifyBrama = True
 
-            newTheNewestDirAltanka = alarm.getTheNewestDayDir(dirNameAltanka)
-            if(newTheNewestDirAltanka == 0):
-                Logger.ERROR("Error with Disk")
-                notificationManager.sendSMSAdmin("Error with Disk")
-                break
+            wrapper = [readyToNotifyAltanka]
+            result = cameraAltanka.analyzeMoving(wrapper)
+            readyToNotifyAltanka = wrapper[0]
+            if result:
+                Logger.DEBUG(result)
+                notificationManager.sendSMSNotification(result)
+                if "ERROR" in result:
+                    break
 
-            if (newTheNewestDirAltanka!= theNewestDirAltanka):  #new directory -> new day
-                countFilesAltanka = 0
-                theNewestDirAltanka=newTheNewestDirAltanka
-            newCountFilesAltanka = alarm.getListOfFiles(dirNameAltanka+'/'+theNewestDirAltanka)
+            wrapper = [readyToNotifyBrama]
+            result = cameraBrama.analyzeMoving(wrapper)
+            readyToNotifyBrama = wrapper[0]
+            if result:
+                Logger.DEBUG(result)
+                notificationManager.sendSMSNotification(result)
+                if "ERROR" in result:
+                    break
 
-            if(newCountFilesAltanka-countFilesAltanka>=3):
-                alarmLevelAltankaActive = True
-                if not readyToNotifyAltanka:
-                    info = "ALARM ALTANKA - log level +1"
-                    alarmLevelAltanka+=1
-                    Logger.INFO(info)
-                    alarm.alarmLog(info)
-           
-            if readyToNotifyAltanka and alarmLevelAltankaActive:
-                alarmLevelAltankaActive = False
-                if alarmLevelAltanka <= 1:
-                    info="ALARM ALTANKA"
-                elif alarmLevelAltanka <= 4:
-                    info="ALARM ALATANKA - ktos nadal sie wluczy po podworku"
-                elif alarmLevelAltanka > 4:
-                    info="ALARM ALTANKA - robisz impreze, czy co ? bardzo duzy ruch"
-                notificationManager.sendSMSNotification(info)
-                readyToNotifyAltanka = False
-                alarmLevelAltanka=0
 
-                Logger.INFO(info)
-                alarm.alarmLog(info)
-            countFilesAltanka=newCountFilesAltanka
-
-            newTheNewestDirBrama = alarm.getTheNewestDayDir(dirNameBrama)
-            if (newTheNewestDirBrama != theNewestDirBrama):
-                countFilesBrama = 0
-                theNewestDirBrama=newTheNewestDirBrama
-            newCountFilesBrama = alarm.getListOfFiles(dirNameBrama+'/'+theNewestDirBrama)
-
-            if(newCountFilesBrama-countFilesBrama>=2):
-                alarmLevelBramaActive = True
-                if not readyToNotifyBrama:
-                    info = "ALARM BRAMA - log Level +1"
-                    alarmLevelBrama+=1
-        
-            if readyToNotifyBrama and alarmLevelBramaActive:
-                alarmLevelBramaActive = False
-                if alarmLevelBrama <= 1:
-                    info="ALARM BRAMA"
-                elif alarmLevelBrama <= 4:
-                    info="ALARM BRAMA - ktos nadal sie wluczy po podworku"
-                elif alarmLevelBrama > 4:
-                    info="ALARM BRAMA - robisz impreze, czy co ? bardzo duzy ruch"
-                notificationManager.sendSMSNotification(info)
-                readyToNotifyBrama = False
-                alarmLevelBrama=0
-                    
-                Logger.INFO(info)
-                alarm.alarmLog(info)
-            countFilesBrama=newCountFilesBrama
-        
         counter6s=counter6s+1
        
         if notificationManager.readyToSMS:
