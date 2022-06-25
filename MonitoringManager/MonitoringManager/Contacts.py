@@ -34,7 +34,7 @@ class Contact():
         self.emails = emails
 
 class Contacts():
-    def __init__(self, fileName="contacts.txt"):
+    def __init__(self, fileName="/etc/scripts/contacts.txt"):
         self.tel = []
         self.fileName = fileName
         self.readContacts()

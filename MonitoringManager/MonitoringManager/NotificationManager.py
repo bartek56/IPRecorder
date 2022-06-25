@@ -14,11 +14,11 @@ class ActiveUser():
         self.surname = surname
 
 class NotificationManager():
-    def __init__(self, activeUsersFile="active_users.txt"):
+    def __init__(self, activeUsersFile="/etc/scripts/active_users.txt"):
         self.adminNumber = "123456789"
         self.ipRecorderStatus = IpRecorderStatus()
 #        self.mailManager = Mail()
-        self.phoneContacts = Contacts()
+        self.phoneContacts = Contacts("/etc/scripts/contacts.txt")
         self.readyToSMS = False
         self.gsmSerial = GSMSerial()
         time.sleep(3)

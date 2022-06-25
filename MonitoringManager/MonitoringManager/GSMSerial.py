@@ -4,6 +4,7 @@ import os
 import datetime
 import urllib.request
 import sh
+from Logger import Logger
 
 dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
 dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
@@ -76,7 +77,7 @@ class GSMSerial:
 
     def sendSMS(self, number, text):
         commend='AT+CMGS="' + str(number) + '"\r\n'
-        self.GSMLog("sending SMS \""+ text + "\" to " + str(number))
+        Logger.INFO("sending SMS to " + str(number))
         self.serialGSM.write(commend.encode())
         while self.serialGSM.inWaiting()<=1:
             time.sleep(0.04)
@@ -99,10 +100,8 @@ class GSMSerial:
             #data_str = ser.read(ser.inWaiting()).decode('ascii') #read the bytes and convert from binary array to ASCII
             data_str = self.serialGSM.read(self.serialGSM.inWaiting())
 #            self.GSMLog(data_str)
-            print(data_str)
             data_str = data_str.decode("utf-8")
-            print(data_str)
-
+            Logger.INFO(data_str)
             return data_str
 
         return None    
