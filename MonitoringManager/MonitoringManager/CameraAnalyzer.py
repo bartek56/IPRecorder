@@ -14,7 +14,6 @@ class CameraAnalyzer():
     def analyzeMoving(self, readyToNotify):
             smsMessage = None
             newTheNewestDir = self.getTheNewestDayDir(self.dirName)
-            Logger.ERROR(self.cameraName)
 
             if(newTheNewestDir == 0): 
                 Logger.ERROR("Error with Disk")
@@ -38,7 +37,7 @@ class CameraAnalyzer():
                 if self.alarmLevel == 0:
                     info="ALARM " + self.cameraName
                 elif self.alarmLevel <= 1:
-                    info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - bardzo mały ruch, mogł to być kot"
+                    info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - bardzo maly ruch, mogl to byc kot"
                 elif self.alarmLevel <= 4:
                     info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - ktos nadal sie wluczy po podworku, sprawdz zdjecia"
                 elif self.alarmLevel > 4:

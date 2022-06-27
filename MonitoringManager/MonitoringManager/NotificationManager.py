@@ -40,6 +40,12 @@ class NotificationManager():
         for x in self.usersList:
             print(x.name, x.surname)
 
+    def getActiveContacts(self):
+        activeContact = []
+        for x in self.usersList:
+            activeContact.append(x.name + " " +x.surname)
+        return activeContact    
+
     def addUserAsActive(self, name, surname):
         for x in self.usersList:
             if x.name == name and x.surname == surname:
@@ -101,6 +107,17 @@ class NotificationManager():
     def sendSMSAdmin(self, message):        
         self.gsmSerial.sendSMS(self.adminNumber, message)
 
+    def checkStatus(self):
+        status = self.ipRecorderStatus.checkStatus()
+        activeContacts = self.getActiveContacts()
+        if len(activeContacts) > 0:
+            status += "\nActive Contacts:\n"
+            for x in activeContacts:
+                status += x
+                status += " "
+        return status        
+
+
     def checkSender(self, data_str):
         dataStrTemp = data_str
         dataStrTempSplitted = dataStrTemp.split(",,")
@@ -121,8 +138,7 @@ class NotificationManager():
             # text message        
             if('+CMT:' in data_str):
                 if('STATUS' in data_str):
-                    status = self.ipRecorderStatus.checkStatus()
-                    self.sendSMSAdmin(status)
+                   self.sendSMSAdmin(self.checkStatus())
 
                 contact = self.checkSender(data_str)
                 if contact is None:
