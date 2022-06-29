@@ -14,7 +14,7 @@ class ActiveUser():
 
 class NotificationManager():
     def __init__(self, activeUsersFile="/etc/scripts/active_users.txt"):
-        self.adminNumber = "123456789"
+        self.adminNumber = "987654321"
         self.ipRecorderStatus = IpRecorderStatus()
 #        self.mailManager = Mail()
         self.phoneContacts = Contacts("/etc/scripts/contacts.txt")
@@ -137,20 +137,22 @@ class NotificationManager():
         if(data_str is not None):
             # text message        
             if('+CMT:' in data_str):
-                if('STATUS' in data_str):
-                   self.sendSMSAdmin(self.checkStatus())
-
                 contact = self.checkSender(data_str)
                 if contact is None:
                      self.sendSMSAdmin("unknown number send sms to me")
                      return
                 else:                        
-                    if('ALARMOFF' in data_str):
+                    if('STATUS' in data_str):
+                        self.sendSMS(contact.numbers[0].number, self.checkStatus())
+                    elif('ALARMOFF' in data_str):
                         self.sendSMS(contact.numbers[0].number, "Wylaczono ALARM")
                         self.removeUserFromActive(contact.name, contact.surname)
                     elif('ALARMON' in data_str):
                         self.sendSMS(contact.numbers[0].number, "Wlaczono ALARM")
                         self.addUserAsActive(contact.name, contact.surname)
+                    else:
+                        self.sendSMS(contact.numbers[0].number, "Nie wiem, czego ode mnie zadasz")
+
             # calling           
             elif('+CLIP:' in data_str):
                 self.sendSMSAdmin("somebody call to me: \n" + data_str)
