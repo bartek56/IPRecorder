@@ -53,7 +53,7 @@ def main():
    
     counter6s=0
     counter1min=0
-    
+   
     readyToNotifyBrama = True
     readyToNotifyAltanka = True
     cameraAltanka = CameraAnalyzer(dirNameAltanka, "ALTANKA")
@@ -86,6 +86,8 @@ def main():
                 Logger.DEBUG(result)
                 notificationManager.sendSMSNotification(result)
                 if "ERROR" in result:
+                    notificationManager.sendSMSAdmin(result)
+                    Logger.ERROR(result)
                     break
 
             wrapper = [readyToNotifyBrama]
@@ -95,6 +97,8 @@ def main():
                 Logger.DEBUG(result)
                 notificationManager.sendSMSNotification(result)
                 if "ERROR" in result:
+                    notificationManager.sendSMSAdmin(result)
+                    Logger.ERROR(result)
                     break
 
 

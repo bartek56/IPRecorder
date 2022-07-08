@@ -7,9 +7,12 @@ class CameraAnalyzer():
         self.dirName = dirName
         self.cameraName = cameraName
         self.theNewestDir = self.getTheNewestDayDir(self.dirName)
-        self.countFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
-        self.alarmLevel = 0
-        self.alarmLevelActive = False
+        if(self.theNewestDir == 0): 
+            Logger.ERROR("Error with Disk")
+        else:
+            self.countFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
+            self.alarmLevel = 0
+            self.alarmLevelActive = False
 
     def analyzeMoving(self, readyToNotify):
             smsMessage = None
