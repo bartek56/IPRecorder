@@ -23,9 +23,13 @@ class IpRecorderStatus:
     def checkMemory(self):
         rootMemory = sh.awk( sh.grep(sh.df("-h"), "root"), "{print $3 \"/\" $2}")
         diskMemory = sh.awk( sh.grep(sh.df("-h"), "INTENSO"), "{print $3 \"/\" $2}")
+        ramMemory = sh.awk( sh.grep(sh.df("-h"), "var/log"), "{print $3 \"/\" $2}") 
         rootMemory = str(rootMemory).strip()
         diskMemory = str(diskMemory).strip()
-        return ("External Memory: " + diskMemory + "\n" + "Internal Memory: " + rootMemory)
+        ramMemory = str(ramMemory).strip()
+        return ("External Memory: " + diskMemory + "\n" + 
+                "Internal Memory: " + rootMemory + "\n" +
+                "Logs memory: " + ramMemory)
 
     def checkStatus(self):
         info = ""
