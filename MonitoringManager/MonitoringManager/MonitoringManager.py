@@ -59,8 +59,7 @@ def main():
     cameraAltanka = CameraAnalyzer(dirNameAltanka, "ALTANKA")
     cameraBrama = CameraAnalyzer(dirNameBrama, "BRAMA")
 
-    theNewestDirAltanka = cameraAltanka.getTheNewestDayDir(dirNameAltanka)
-    if(theNewestDirAltanka == 0): 
+    if(cameraAltanka.theNewestDir == 0): 
         Logger.ERROR("Error with Disk")
         notificationManager.sendSMSAdmin("Error with Disk")
         exit()
@@ -82,6 +81,7 @@ def main():
             wrapper = [readyToNotifyAltanka]
             result = cameraAltanka.analyzeMoving(wrapper)
             readyToNotifyAltanka = wrapper[0]
+            
             if result:
                 Logger.DEBUG(result)
                 notificationManager.sendSMSNotification(result)
