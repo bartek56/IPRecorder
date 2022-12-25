@@ -37,7 +37,6 @@ class IpRecorderStatus:
         process = subprocess.run('ftpwho -v -o oneline', shell=True, stdout=subprocess.PIPE, universal_newlines=True)
         result = process.stdout
         resultStr = ""
-        print(result)
         if "[192.168.1.6]" not in result:
             resultStr += "camera1 not available" 
         if "[192.168.1.7]" not in result:
@@ -49,10 +48,11 @@ class IpRecorderStatus:
     def checkStatus(self):
         actualStatus = True
         info = ""
-        if not os.path.isdir(dirNameBrama):
+        diskIsMounted = os.path.isdir(dirNameBrama)
+        if not diskIsMounted:
             info += "disk is not mounted"
             actualStatus = False
-        
+ 
         if not self.checkNetwork():
             if len(info) > 3:
                 info += "\n"
@@ -65,11 +65,12 @@ class IpRecorderStatus:
             if len(info) > 3:
                 info += "\n"
             info += result
-        
-        if len(info) > 3:
-            info += "\n"
-        info += self.checkMemory()
-
+ 
+        if diskIsMounted:
+            if len(info) > 3:
+                info += "\n"
+            info += self.checkMemory()
+       
         if actualStatus:
             return "everything okay \n" + info
         else:
