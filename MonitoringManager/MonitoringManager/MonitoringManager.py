@@ -17,7 +17,7 @@ class Killer:
     def __init__(self):
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
-    
+
     def exit_gracefully(self, *args):
         self.kill_now = True
 
@@ -50,16 +50,16 @@ def main():
 
     Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log", saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
     notificationManager = NotificationManager("/etc/scripts/active_users.txt")
-   
+
     counter6s=0
     counter1min=0
-   
+
     readyToNotifyBrama = True
     readyToNotifyAltanka = True
     cameraAltanka = CameraAnalyzer(dirNameAltanka, "ALTANKA")
     cameraBrama = CameraAnalyzer(dirNameBrama, "BRAMA")
 
-    if(cameraAltanka.theNewestDir == 0): 
+    if(cameraAltanka.theNewestDir == 0):
         Logger.ERROR("Error with Disk")
         notificationManager.sendSMSAdmin("Error with Disk")
         exit()
@@ -81,13 +81,14 @@ def main():
             wrapper = [readyToNotifyAltanka]
             result = cameraAltanka.analyzeMoving(wrapper)
             readyToNotifyAltanka = wrapper[0]
-            
+
             if result:
                 Logger.DEBUG(result)
                 notificationManager.sendSMSNotification(result)
                 if "ERROR" in result:
                     notificationManager.sendSMSAdmin(result)
                     Logger.ERROR(result)
+                    os.system("reboot now")
                     break
 
             wrapper = [readyToNotifyBrama]
@@ -99,11 +100,12 @@ def main():
                 if "ERROR" in result:
                     notificationManager.sendSMSAdmin(result)
                     Logger.ERROR(result)
+                    os.system('reboot now')
                     break
 
 
         counter6s=counter6s+1
-       
+
         if notificationManager.readyToSMS:
             listSMSFiles = os.listdir(SMSDir)
             for x in listSMSFiles:
@@ -117,8 +119,8 @@ def main():
                 notificationManager.sendSMSAdmin(text)
                 os.remove(smsFile)
                 notificationManager.readyToSMS=False
-                break # next sms on other cycle, when GSM will ready to SMS    
-     
+                break # next sms on other cycle, when GSM will ready to SMS
+
         time.sleep(0.5)
 
 #    notificationManager.phoneContacts.SaveToFile()
