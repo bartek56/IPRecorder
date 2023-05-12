@@ -37,3 +37,6 @@ done
 TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
 echo "$TIMESTAMP finished autoremove script" >> $LOGFILE
 
+# a lot of logs here. clear it daily
+truncate -s 0 /var/log/proftpd/vroot.log
+truncate -s 0 /var/log/auth.log

@@ -1,0 +1,2 @@
+# move this file to /etc/cron.d
+10 00 * * * root /etc/scripts/autoRemove.sh

@@ -3,7 +3,7 @@ import nmap
 
 class NetworkMonitoring():
     def __init__(self):
-        self.knownDevicesFileName = "known_devices"
+        self.knownDevicesFileName = "/etc/scripts/known_devices"
 
     def scanDevicesInLocalNetwork(self):
         nm = nmap.PortScanner()
@@ -21,7 +21,7 @@ class NetworkMonitoring():
             fileDevices = open(self.knownDevicesFileName, "w")
             fileDevices.write("")
             fileDevices.close()
-        
+
         devicesFile = open(self.knownDevicesFileName,'r')
         devices = self.scanDevicesInLocalNetwork()
         listDevices = devicesFile.readlines()
