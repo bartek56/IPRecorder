@@ -12,9 +12,14 @@ include_directories(${Boost_INCLUDE_DIRS})
 find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
-add_library(GSMEngine SHARED
-    rectangle.cpp
-    rectangleWrapper.cpp
-)
+# library for GSM serial
+add_library(gsm Serial.cpp)
 
-target_link_libraries(GSMEngine PUBLIC ${Boost_LIBRARIES})
+# library for python wrapper
+add_library(GSMEngine SHARED rectangleWrapper.cpp)
+target_link_libraries(GSMEngine PUBLIC ${Boost_LIBRARIES} gsm)
+
+# desktop app
+add_executable(GSMapp main.cpp)
+target_link_libraries(GSMapp gsm)
+

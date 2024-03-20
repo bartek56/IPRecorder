@@ -1,5 +1,5 @@
 #include <boost/python.hpp>
-#include "rectangle.cpp"
+#include "rectangle.hpp"
 
 BOOST_PYTHON_MODULE(rectangle) {
     using namespace boost::python;

@@ -1,5 +1,4 @@
-#include <iostream>
-
+#pragma once
 class Rectangle {
 private:
     double length;
@@ -13,4 +12,5 @@ public:
         return 2 * (length + width);
     }
 };
+
 
