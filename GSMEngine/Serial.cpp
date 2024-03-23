@@ -14,7 +14,7 @@ void Serial::start() {
 //  const char *uartDevice = "/dev/pts/2";
   const char *uartDevice = "/dev/ttyAMA0";
 
-  int fd = open(uartDevice, O_RDWR | O_NOCTTY | O_NDELAY);
+  int fd = open(uartDevice, O_RDWR);
   if (fd == -1) {
     std::cerr << "Nie można otworzyć urządzenia UART." << std::endl;
     return;
@@ -42,8 +42,9 @@ void Serial::start() {
   FD_SET(fd, &read_fds);
 
   char buffer[256];
+  memset(buffer, 0, sizeof(buffer));
 	int bytesRead = 0;
-	std::string wholeMessage;
+	int totalBytesRead = 0;
   while (true) {
 
     struct timeval timeout;
@@ -63,15 +64,16 @@ void Serial::start() {
 
       // check if select is for out device
       if (FD_ISSET(fd, &read_fds)) {
-        // read data
-        memset(buffer, 0, sizeof(buffer));
-        bytesRead = read(fd, buffer, sizeof(buffer)-1);
+
+        bytesRead = read(fd, buffer+totalBytesRead, sizeof(buffer)-totalBytesRead-1);
+
         if (bytesRead > 0) {
-					wholeMessage += std::string(buffer, bytesRead);
-					if (static_cast<int>(buffer[bytesRead-1]) == 10 && static_cast<int>(buffer[bytesRead-2]) == 13)
+          totalBytesRead += bytesRead;
+					if (static_cast<int>(buffer[totalBytesRead-1]) == 10 && static_cast<int>(buffer[totalBytesRead-2]) == 13)
 					{
-					    std::cout << "New message: " << wholeMessage << std::endl;
-							wholeMessage = "";
+  						std::cout << "new message: " <<  std::string(buffer, totalBytesRead) << std::endl;
+							totalBytesRead = 0;
+              memset(buffer, 0, sizeof(buffer));
 					}
         }
       }
