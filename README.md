@@ -29,6 +29,8 @@ cmake -DBOOST_ROOT=<install_prefix> ..
 
 LD_LIBRARY_PATH=<install_prefix>/lib python script.py
 
+virtual serial:
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
 
 GSMSerial.py:
 It's script to verify new image (created by IP Camera during moving) and inform by SMS about it
