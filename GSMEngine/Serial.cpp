@@ -2,6 +2,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <iomanip>
 #include <sys/select.h>
 #include <termios.h>
 #include <unistd.h>
@@ -40,6 +41,9 @@ void Serial::start() {
   FD_ZERO(&read_fds);
   FD_SET(fd, &read_fds);
 
+  char buffer[256];
+	int bytesRead = 0;
+	std::string wholeMessage;
   while (true) {
 
     struct timeval timeout;
@@ -49,7 +53,7 @@ void Serial::start() {
     FD_SET(fd, &read_fds);
 
     // wait for data
-    int result = select(fd + 1, &read_fds, NULL, NULL, &timeout);
+    int result = select(fd + 1, &read_fds, NULL, NULL, NULL);
     if (result == -1) {
       std::cerr << "error with select()." << std::endl;
       break;
@@ -60,19 +64,22 @@ void Serial::start() {
       // check if select is for out device
       if (FD_ISSET(fd, &read_fds)) {
         // read data
-        char buffer[256];
         memset(buffer, 0, sizeof(buffer));
-				usleep(100000); // wait to get whole message from serial
-        int bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+        bytesRead = read(fd, buffer, sizeof(buffer)-1);
         if (bytesRead > 0) {
-          std::cout << "New data: " << buffer << std::endl;
+					wholeMessage += std::string(buffer, bytesRead);
+					if (static_cast<int>(buffer[bytesRead-1]) == 10 && static_cast<int>(buffer[bytesRead-2]) == 13)
+					{
+					    std::cout << "New message: " << wholeMessage << std::endl;
+							wholeMessage = "";
+					}
         }
       }
     }
 
     // let's do other things
-    usleep(100000);
-    std::cout << "wait" << std::endl;
+    // usleep(100000);
+    // std::cout << "done" << std::endl;
   }
 
   close(fd);
