@@ -14,8 +14,9 @@ int Serial::fd = -1;
 std::vector<std::string> Serial::m_messagesQueue;
 std::mutex Serial::serialMutex;
 std::mutex Serial::messageMutex;
+std::atomic<bool> Serial::serialRunning;
 
-Serial::Serial(const std::string serialPort) : receiver(nullptr), sender(nullptr)
+Serial::Serial(std::string serialPort) : receiver(nullptr), sender(nullptr)
 {
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
@@ -40,18 +41,18 @@ Serial::Serial(const std::string serialPort) : receiver(nullptr), sender(nullptr
 
     // non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
+    Serial::serialRunning = true;
 
     receiver = std::make_unique<std::thread>(readThread);
     sender = std::make_unique<std::thread>(sendThread);
+    std::cout << "initialized" << std::endl;
 }
 
 Serial::~Serial()
 {
-    std::cout << "dctor" << std::endl;
+    serialRunning = false;
     receiver->join();
-    std::cout << "receiver joined" << std::endl;
     sender->join();
-    std::cout << "receiver joined" << std::endl;
     close(fd);
     std::cout << "Serial was closed" << std::endl;
 }
@@ -65,7 +66,7 @@ void Serial::readThread()
     int bytesRead = 0;
     int totalBytesRead = 0;
 
-    while(true)
+    while(serialRunning)
     {
         struct timeval timeout;
         timeout.tv_sec = 1;
@@ -102,11 +103,12 @@ void Serial::readThread()
             }
         }
     }
+    std::cout << "receiver closed" << std::endl;
 }
 
 void Serial::sendThread()
 {
-    while(1)
+    while(serialRunning)
     {
         {
             std::lock_guard<std::mutex> lockMessage(messageMutex);
@@ -116,20 +118,23 @@ void Serial::sendThread()
                 int bytesWritten = 0;
                 {
                     std::lock_guard<std::mutex> lockSerial(serialMutex);
-                    bytesWritten = write(fd, newMessage.c_str(), newMessage.size());// Wysłanie wiadomości
+                    bytesWritten = write(fd, newMessage.c_str(), newMessage.size());
                 }
                 if(bytesWritten < 0)
                 {
-                    std::cerr << "Błąd podczas wysyłania danych." << std::endl;
+                    std::cerr << "Error to send data!" << std::endl;
                 }
-
-                std::cout << "Wysłano dane: " << newMessage << std::endl;
+                else
+                {
+                    std::cout << "Message was send: " << newMessage << std::endl;
+                }
 
                 m_messagesQueue.erase(m_messagesQueue.begin());
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
+    std::cout << "sender closed" << std::endl;
 }
 
 

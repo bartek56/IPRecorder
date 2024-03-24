@@ -6,6 +6,9 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <csignal>
+
+#include <atomic>
 
 class Serial
 {
@@ -23,6 +26,8 @@ private:
 
     static std::mutex serialMutex;
     static std::mutex messageMutex;
+
+    static std::atomic<bool> serialRunning;
     std::unique_ptr<std::thread> receiver;
     std::unique_ptr<std::thread> sender;
 };
