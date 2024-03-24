@@ -10,7 +10,12 @@
 #include <iostream>
 #include <array>
 
-Serial::Serial(const std::string serialPort) : fd(-1), m_messagesQueue()
+int Serial::fd = -1;
+std::vector<std::string> Serial::m_messagesQueue;
+std::mutex Serial::serialMutex;
+std::mutex Serial::messageMutex;
+
+Serial::Serial(const std::string serialPort) : receiver(nullptr), sender(nullptr)
 {
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
@@ -35,24 +40,31 @@ Serial::Serial(const std::string serialPort) : fd(-1), m_messagesQueue()
 
     // non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
+
+    receiver = std::make_unique<std::thread>(readThread);
+    sender = std::make_unique<std::thread>(sendThread);
 }
 
 Serial::~Serial()
 {
+    std::cout << "dctor" << std::endl;
+    receiver->join();
+    std::cout << "receiver joined" << std::endl;
+    sender->join();
+    std::cout << "receiver joined" << std::endl;
     close(fd);
     std::cout << "Serial was closed" << std::endl;
 }
 
-void Serial::start()
+void Serial::readThread()
 {
-    //    char buffer[256];
     std::array<char, k_bufferSize> buffer;
     std::fill(buffer.begin(), buffer.end(), 0);
 
     fd_set read_fds;
     int bytesRead = 0;
     int totalBytesRead = 0;
-    bool isBusy = false;
+
     while(true)
     {
         struct timeval timeout;
@@ -71,10 +83,10 @@ void Serial::start()
 
         else if(result > 0)
         {
-            isBusy = true;
             // check if select is for out device
             if(FD_ISSET(fd, &read_fds))
             {
+                std::lock_guard<std::mutex> lock(serialMutex);
                 bytesRead = read(fd, buffer.data() + totalBytesRead, sizeof(buffer) - totalBytesRead - 1);
 
                 if(bytesRead > 0)
@@ -85,38 +97,45 @@ void Serial::start()
                         std::cout << "new message: " << std::string(buffer.data(), totalBytesRead) << std::endl;
                         totalBytesRead = 0;
                         std::fill(buffer.begin(), buffer.end(), 0);
-                        isBusy = false;
                     }
                 }
             }
         }
-
-        //        else if(result == 0)
-        //        {
-        //            std::cout << "timeout, No data" << std::endl;
-        //        }
-
-        // let's do other things
-        if(!isBusy && m_messagesQueue.size() > 0)
-        {
-            auto newMessage = m_messagesQueue[0];
-
-            int bytes_written = write(fd, newMessage.c_str(), newMessage.size());// Wysłanie wiadomości
-
-            if(bytes_written < 0)
-            {
-                std::cerr << "Błąd podczas wysyłania danych." << std::endl;
-            }
-
-            std::cout << "Wysłano dane: " << newMessage << std::endl;
-
-            m_messagesQueue.erase(m_messagesQueue.begin());
-        }
     }
 }
 
+void Serial::sendThread()
+{
+    while(1)
+    {
+        {
+            std::lock_guard<std::mutex> lockMessage(messageMutex);
+            if(m_messagesQueue.size() > 0)
+            {
+                auto newMessage = m_messagesQueue[0];
+                int bytesWritten = 0;
+                {
+                    std::lock_guard<std::mutex> lockSerial(serialMutex);
+                    bytesWritten = write(fd, newMessage.c_str(), newMessage.size());// Wysłanie wiadomości
+                }
+                if(bytesWritten < 0)
+                {
+                    std::cerr << "Błąd podczas wysyłania danych." << std::endl;
+                }
+
+                std::cout << "Wysłano dane: " << newMessage << std::endl;
+
+                m_messagesQueue.erase(m_messagesQueue.begin());
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+}
+
+
 void Serial::sendMessage(std::string message)
 {
+    std::lock_guard<std::mutex> lock(messageMutex);
     message.append("\r");
     m_messagesQueue.push_back(message);
 }
