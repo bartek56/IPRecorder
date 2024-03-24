@@ -5,7 +5,9 @@ Requirements:
 - boost.python
 
 
-1. Download bootstrap
+1. Download Boost 1.84.0
+
+wget https://boostorg.jfrog.io/artifactory/main/release/1.84.0/source/boost_1_84_0.tar.gz
 
 2. Configure
 
