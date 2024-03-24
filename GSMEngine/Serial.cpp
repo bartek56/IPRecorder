@@ -10,13 +10,7 @@
 #include <iostream>
 #include <array>
 
-int Serial::fd = -1;
-std::vector<std::string> Serial::m_messagesQueue;
-std::mutex Serial::serialMutex;
-std::mutex Serial::messageMutex;
-std::atomic<bool> Serial::serialRunning;
-
-Serial::Serial(std::string serialPort) : receiver(nullptr), sender(nullptr)
+Serial::Serial(std::string serialPort) : fd(-1), m_messagesQueue(), serialMutex(), messageMutex(), serialRunning(true), receiver(nullptr), sender(nullptr)
 {
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
@@ -41,16 +35,16 @@ Serial::Serial(std::string serialPort) : receiver(nullptr), sender(nullptr)
 
     // non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
-    Serial::serialRunning = true;
+    Serial::serialRunning.store(true);
 
-    receiver = std::make_unique<std::thread>(readThread);
-    sender = std::make_unique<std::thread>(sendThread);
+    receiver = std::make_unique<std::thread>([this]() { this->readThread(); });
+    sender = std::make_unique<std::thread>([this]() { this->sendThread(); });
     std::cout << "initialized" << std::endl;
 }
 
 Serial::~Serial()
 {
-    serialRunning = false;
+    serialRunning.store(false);
     receiver->join();
     sender->join();
     close(fd);
@@ -66,7 +60,7 @@ void Serial::readThread()
     int bytesRead = 0;
     int totalBytesRead = 0;
 
-    while(serialRunning)
+    while(serialRunning.load())
     {
         struct timeval timeout;
         timeout.tv_sec = 1;
@@ -108,7 +102,7 @@ void Serial::readThread()
 
 void Serial::sendThread()
 {
-    while(serialRunning)
+    while(serialRunning.load())
     {
         {
             std::lock_guard<std::mutex> lockMessage(messageMutex);

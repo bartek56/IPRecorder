@@ -2,45 +2,48 @@
 #include <iostream>
 #include <csignal>
 
-std::atomic<bool> running(true);
 
-void handle_signal(int signal)
+class ProgramState
 {
-    if(signal == SIGTERM)
+public:
+    static std::atomic<bool> running;
+    static void handleSigterm(int signal)
     {
         std::cout << "SIGTERM. GSMSerial is closing ..." << std::endl;
+        running = false;
         exit(EXIT_SUCCESS);
     }
-    else if(signal == SIGINT)
+    static void handleSigInt(int signal)
     {
         std::cout << "SIGINT (Ctrl+C). GSMSerial is closing ..." << std::endl;
+        running = false;
     }
-    else if(signal == SIGTSTP)
+    static void handleSigTstp(int signal)
     {
         std::cout << "SIGTSTP (Ctrl+Z). GSMSerial is closing ..." << std::endl;
-        exit(EXIT_SUCCESS);
+        running = false;
     }
-    running = false;
-}
+};
+
+std::atomic<bool> ProgramState::running;
 
 int main()
 {
     std::cout << "start" << std::endl;
-    signal(SIGTERM, handle_signal);// Sygnał zakończenia
-    signal(SIGINT, handle_signal); // Sygnał przerwania (Ctrl+C)
-    signal(SIGTSTP, handle_signal);// Sygnał zawieszenia (Ctrl+Z)
+    ProgramState::running.store(true);
+    ProgramState state;
+    signal(SIGTERM, ProgramState::handleSigterm);// Sygnał zakończenia
+    signal(SIGINT, ProgramState::handleSigInt);  // Sygnał przerwania (Ctrl+C)
+    signal(SIGTSTP, ProgramState::handleSigTstp);// Sygnał zawieszenia (Ctrl+Z)
 
     // const std::string port = "/dev/ttyAMA0"; // GSM serial on NAS
-    const std::string port = "/dev/pts/3";// virtual for testing
+    const std::string port = "/dev/pts/4";// virtual for testing
 
     Serial serial(port);
-    //    std::this_thread::sleep_for(std::chrono::seconds(4));
-    //    serial.sendMessage("hello");
-    //    serial.sendMessage("world!");
-    while(running)
+    while(ProgramState::running)
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
-        if(running == false)
+        if(ProgramState::running == false)
         {
             break;
         }
