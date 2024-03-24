@@ -11,5 +11,9 @@ int main()
     Serial serial(port);
     serial.sendMessage("Hello \n");
     serial.sendMessage("World!\n");
-    serial.start();
+
+    while(1)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
 }
