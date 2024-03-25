@@ -45,8 +45,13 @@ Serial::Serial(std::string serialPort) : fd(-1), m_messagesQueue(), serialMutex(
 Serial::~Serial()
 {
     serialRunning.store(false);
-    receiver->join();
+    {
+        std::lock_guard<std::mutex> lock(messageMutex);
+        isNewMessage = true;// notify to unlock thread
+        cv.notify_one();
+    }
     sender->join();
+    receiver->join();
     close(fd);
     std::cout << "Serial was closed" << std::endl;
 }
@@ -81,8 +86,10 @@ void Serial::readThread()
             // check if select is for out device
             if(FD_ISSET(fd, &read_fds))
             {
-                std::lock_guard<std::mutex> lock(serialMutex);
-                bytesRead = read(fd, buffer.data() + totalBytesRead, sizeof(buffer) - totalBytesRead - 1);
+                {
+                    std::lock_guard<std::mutex> lock(serialMutex);
+                    bytesRead = read(fd, buffer.data() + totalBytesRead, sizeof(buffer) - totalBytesRead - 1);
+                }
 
                 if(bytesRead > 0)
                 {
@@ -105,7 +112,8 @@ void Serial::sendThread()
     while(serialRunning.load())
     {
         {
-            std::lock_guard<std::mutex> lockMessage(messageMutex);
+            std::unique_lock lk(messageMutex);
+            cv.wait(lk, [this]() { return isNewMessage; });
             if(m_messagesQueue.size() > 0)
             {
                 auto newMessage = m_messagesQueue[0];
@@ -125,8 +133,11 @@ void Serial::sendThread()
 
                 m_messagesQueue.erase(m_messagesQueue.begin());
             }
+            else
+            {
+                isNewMessage = false;
+            }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     std::cout << "sender closed" << std::endl;
 }
@@ -137,4 +148,6 @@ void Serial::sendMessage(std::string message)
     std::lock_guard<std::mutex> lock(messageMutex);
     message.append("\r");
     m_messagesQueue.push_back(message);
+    isNewMessage = true;
+    cv.notify_one();
 }

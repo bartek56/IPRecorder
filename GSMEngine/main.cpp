@@ -22,6 +22,7 @@ public:
     {
         std::cout << "SIGTSTP (Ctrl+Z). GSMSerial is closing ..." << std::endl;
         running = false;
+        exit(EXIT_SUCCESS);
     }
 };
 
@@ -42,7 +43,8 @@ int main()
     Serial serial(port);
     while(ProgramState::running)
     {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        //        serial.sendMessage("test message");
         if(ProgramState::running == false)
         {
             break;
