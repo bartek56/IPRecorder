@@ -15,10 +15,10 @@ class Serial
 {
 public:
     Serial(const std::string serialPort);
-    Serial(const Serial& serial) = delete;
-    Serial& operator=(const Serial&) = delete;
-    Serial(Serial&& serial) = delete;
-    Serial& operator=(const Serial&&) = delete;
+    Serial(const Serial &serial) = delete;
+    Serial &operator=(const Serial &) = delete;
+    Serial(Serial &&serial) = delete;
+    Serial &operator=(const Serial &&) = delete;
     ~Serial();
 
     void readThread();
@@ -27,6 +27,10 @@ public:
 
 private:
     static constexpr size_t k_bufferSize = 256;
+    static constexpr size_t k_activeTimems = 400;
+    static constexpr size_t k_sleepTimems = 100;
+    static constexpr size_t k_activeTimeus = k_activeTimems * 1000;
+    static constexpr size_t k_sleepTimeus = k_sleepTimems * 1000;
     int fd;
     std::vector<std::string> m_messagesQueue;
 

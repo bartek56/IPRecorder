@@ -45,11 +45,6 @@ Serial::Serial(std::string serialPort) : fd(-1), m_messagesQueue(), serialMutex(
 Serial::~Serial()
 {
     serialRunning.store(false);
-    {
-        std::lock_guard<std::mutex> lock(messageMutex);
-        isNewMessage = true;// notify to unlock thread
-        cv.notify_one();
-    }
     sender->join();
     receiver->join();
     close(fd);
@@ -68,8 +63,8 @@ void Serial::readThread()
     while(serialRunning.load())
     {
         struct timeval timeout;
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = k_activeTimeus;
         FD_ZERO(&read_fds);
         FD_SET(fd, &read_fds);
 
@@ -103,6 +98,7 @@ void Serial::readThread()
                 }
             }
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
     }
     std::cout << "receiver closed" << std::endl;
 }
@@ -113,7 +109,8 @@ void Serial::sendThread()
     {
         {
             std::unique_lock lk(messageMutex);
-            cv.wait(lk, [this]() { return isNewMessage; });
+            cv.wait_for(lk, std::chrono::milliseconds(k_activeTimems), [this]() { return isNewMessage; });
+
             if(m_messagesQueue.size() > 0)
             {
                 auto newMessage = m_messagesQueue[0];
@@ -138,6 +135,7 @@ void Serial::sendThread()
                 isNewMessage = false;
             }
         }
+        //std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
     }
     std::cout << "sender closed" << std::endl;
 }

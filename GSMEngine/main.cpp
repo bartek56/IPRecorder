@@ -43,7 +43,7 @@ int main()
     Serial serial(port);
     while(ProgramState::running)
     {
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         //        serial.sendMessage("test message");
         if(ProgramState::running == false)
         {
