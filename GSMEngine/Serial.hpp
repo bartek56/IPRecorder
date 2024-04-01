@@ -26,7 +26,7 @@ public:
     void sendThread();
     void sendMessage(std::string message);
 
-    void setCallBack(std::function<void(void)> cb);
+    void setReadEvent(std::function<void(std::string&)> cb);
 
 private:
     static constexpr size_t k_bufferSize = 256;
@@ -45,7 +45,7 @@ private:
     std::atomic<bool> serialRunning;
     std::unique_ptr<std::thread> receiver;
     std::unique_ptr<std::thread> sender;
-    std::function<void(void)> callBack;
+    std::function<void(std::string&)> readEvent;
 
     void newMessageNotify(std::array<char, k_bufferSize>& buffer, uint32_t& sizeOfMessage);
 };

@@ -152,17 +152,18 @@ void Serial::sendMessage(std::string message)
     cv.notify_one();
 }
 
-void Serial::setCallBack(std::function<void(void)> cb)
+void Serial::setReadEvent(std::function<void(std::string &)> cb)
 {
-    callBack = cb;
+    readEvent = cb;
 }
 
 void Serial::newMessageNotify(std::array<char, k_bufferSize> &buffer, uint32_t &sizeOfMessage)
 {
-    std::cout << "new message: " << std::string(buffer.data(), sizeOfMessage) << std::endl;
+    std::string newMessage = std::string(buffer.data(), sizeOfMessage);
+    //std::cout << "new message: " << newMessage << std::endl;
     sizeOfMessage = 0;
     std::fill(buffer.begin(), buffer.end(), 0);
 
-    if(callBack)
-        callBack();
+    if(readEvent)
+        readEvent(newMessage);
 }

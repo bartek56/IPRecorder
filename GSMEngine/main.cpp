@@ -41,7 +41,7 @@ int main()
     const std::string port = "/dev/pts/2";// virtual for testing
 
     Serial serial(port);
-    serial.setCallBack([]() { std::cout << "call back was called" << std::endl; });
+    serial.setReadEvent([](std::string &msg) { std::cout << "new message: " << msg << std::endl; });
     while(ProgramState::running)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
