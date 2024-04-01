@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <csignal>
+#include <functional>
 
 #include <atomic>
 
@@ -24,6 +25,8 @@ public:
     void readThread();
     void sendThread();
     void sendMessage(std::string message);
+
+    void setCallBack(std::function<void(void)> cb);
 
 private:
     static constexpr size_t k_bufferSize = 256;
@@ -42,6 +45,9 @@ private:
     std::atomic<bool> serialRunning;
     std::unique_ptr<std::thread> receiver;
     std::unique_ptr<std::thread> sender;
+    std::function<void(void)> callBack;
+
+    void newMessageNotify(std::array<char, k_bufferSize>& buffer, uint32_t& sizeOfMessage);
 };
 
 #endif// SERIAL_HPP

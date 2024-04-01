@@ -38,9 +38,10 @@ int main()
     signal(SIGTSTP, ProgramState::handleSigTstp);// Sygnał zawieszenia (Ctrl+Z)
 
     // const std::string port = "/dev/ttyAMA0"; // GSM serial on NAS
-    const std::string port = "/dev/pts/4";// virtual for testing
+    const std::string port = "/dev/pts/2";// virtual for testing
 
     Serial serial(port);
+    serial.setCallBack([]() { std::cout << "call back was called" << std::endl; });
     while(ProgramState::running)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

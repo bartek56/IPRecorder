@@ -58,7 +58,7 @@ void Serial::readThread()
 
     fd_set read_fds;
     int bytesRead = 0;
-    int totalBytesRead = 0;
+    uint32_t totalBytesRead = 0;
 
     while(serialRunning.load())
     {
@@ -74,6 +74,10 @@ void Serial::readThread()
         {
             std::cerr << "error with select()." << std::endl;
             break;
+        }
+        else if(result == 0 && totalBytesRead > 0)
+        {
+            newMessageNotify(buffer, totalBytesRead);
         }
 
         else if(result > 0)
@@ -91,9 +95,7 @@ void Serial::readThread()
                     totalBytesRead += bytesRead;
                     if(static_cast<int>(buffer[totalBytesRead - 1]) == 10 && static_cast<int>(buffer[totalBytesRead - 2]) == 13)
                     {
-                        std::cout << "new message: " << std::string(buffer.data(), totalBytesRead) << std::endl;
-                        totalBytesRead = 0;
-                        std::fill(buffer.begin(), buffer.end(), 0);
+                        newMessageNotify(buffer, totalBytesRead);
                     }
                 }
             }
@@ -148,4 +150,19 @@ void Serial::sendMessage(std::string message)
     m_messagesQueue.push_back(message);
     isNewMessage = true;
     cv.notify_one();
+}
+
+void Serial::setCallBack(std::function<void(void)> cb)
+{
+    callBack = cb;
+}
+
+void Serial::newMessageNotify(std::array<char, k_bufferSize> &buffer, uint32_t &sizeOfMessage)
+{
+    std::cout << "new message: " << std::string(buffer.data(), sizeOfMessage) << std::endl;
+    sizeOfMessage = 0;
+    std::fill(buffer.begin(), buffer.end(), 0);
+
+    if(callBack)
+        callBack();
 }
