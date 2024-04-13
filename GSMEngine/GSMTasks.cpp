@@ -18,7 +18,7 @@ bool GSMTasks::setConfig(const std::string &command)
 {
     bool result = false;
     serial.sendMessage(command + "\r\n");
-    std::unique_lock lk(messageMutex);
+    std::unique_lock<std::mutex> lk(messageMutex);
     cv.wait_for(lk, std::chrono::seconds(5), [this]() { return isNewMessage; });
     isNewMessage = false;
     if(receivedMessage.size() > 0)

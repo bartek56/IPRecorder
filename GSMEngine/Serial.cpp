@@ -9,6 +9,10 @@
 #include <iomanip>
 #include <iostream>
 #include <array>
+#include <mutex>
+
+constexpr size_t Serial::k_sleepTimems;
+constexpr size_t Serial::k_activeTimems;
 
 Serial::Serial(std::string serialPort) : fd(-1), m_messagesQueue(), serialMutex(), messageMutex(), serialRunning(true), receiver(nullptr), sender(nullptr)
 {
@@ -110,7 +114,7 @@ void Serial::sendThread()
     while(serialRunning.load())
     {
         {
-            std::unique_lock lk(messageMutex);
+            std::unique_lock<std::mutex> lk(messageMutex);
             cv.wait_for(lk, std::chrono::milliseconds(k_activeTimems), [this]() { return isNewMessage; });
 
             if(m_messagesQueue.size() > 0)
