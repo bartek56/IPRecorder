@@ -15,7 +15,7 @@ find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
 # library for GSM serial
-add_library(gsm Serial.cpp)
+add_library(gsm Serial.cpp GSMManager.cpp GSMTasks.cpp)
 target_link_libraries(gsm ${CMAKE_THREAD_LIBS_INIT})
 
 # library for python wrapper

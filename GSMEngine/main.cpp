@@ -1,4 +1,4 @@
-#include "Serial.hpp"
+#include "GSMManager.hpp"
 #include <iostream>
 #include <csignal>
 
@@ -39,9 +39,9 @@ int main()
 
     // const std::string port = "/dev/ttyAMA0"; // GSM serial on NAS
     const std::string port = "/dev/pts/2";// virtual for testing
+    GSMManager gsmManager(port);
+    gsmManager.Initilize();
 
-    Serial serial(port);
-    serial.setReadEvent([](std::string &msg) { std::cout << "new message: " << msg << std::endl; });
     while(ProgramState::running)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

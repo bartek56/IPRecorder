@@ -125,10 +125,12 @@ void Serial::sendThread()
                 {
                     std::cerr << "Error to send data!" << std::endl;
                 }
+                /*
                 else
                 {
                     std::cout << "Message was send: " << newMessage << std::endl;
                 }
+                */
 
                 m_messagesQueue.erase(m_messagesQueue.begin());
             }
