@@ -6,17 +6,24 @@ GSMManager::GSMManager(const std::string &port) : tasks(port)
 {
 }
 
-void GSMManager::Initilize()
+bool GSMManager::Initilize()
 {
-
-    bool status = false;
-    status = tasks.setConfig("AT+AAAA=1");
-
-    if(!status)
+    auto setConfig = [&](const std::string &command)
     {
-        std::cout << "Failed 1" << std::endl;
-    }
-    tasks.setConfig("AT+BBBB=1");
-    tasks.setConfig("AT+CCCC=1");
-    tasks.setConfig("AT+DDDD=1");
+        auto result = tasks.setConfig(command);
+        if(!result)
+        {
+            std::cout << "failed to set config: " << command << std::endl;
+            return false;
+        }
+        return true;
+    };
+
+    bool result = true;
+    result &= setConfig("AT");
+    result &= setConfig("AT+CMGF=1");
+    result &= setConfig("AT+CNMI=1,2,0,0");
+    result &= setConfig("AT+CLIP=1");
+
+    return result;
 }

@@ -38,9 +38,14 @@ int main()
     signal(SIGTSTP, ProgramState::handleSigTstp);// Sygnał zawieszenia (Ctrl+Z)
 
     // const std::string port = "/dev/ttyAMA0"; // GSM serial on NAS
-    const std::string port = "/dev/pts/2";// virtual for testing
+    const std::string port = "/dev/pts/1";// virtual for testing
     GSMManager gsmManager(port);
-    gsmManager.Initilize();
+    if(!gsmManager.Initilize())
+    {
+        std::cout << "initialization failed" << std::endl;
+        return 0;
+    }
+    std::cout << "Initialization success" << std::endl;
 
     while(ProgramState::running)
     {

@@ -7,24 +7,26 @@ GSMTasks::GSMTasks(const std::string &port) : serial(port)
     serial.setReadEvent(
             [&](const std::string &msg)
             {
-                std::cout << "new message " << msg << std::endl;
-                receivedMessage = msg;
+                //                std::cout << "new message " << msg << std::endl;
+                receivedMessage = std::move(msg);
                 isNewMessage = true;
                 cv.notify_one();
             });
 }
 
-bool GSMTasks::setConfig(std::string command)
+bool GSMTasks::setConfig(const std::string &command)
 {
-    auto command2 = command + "\r\n";
-    serial.sendMessage(command2);
-    std::cout << "after send: " << command << std::endl;
+    bool result = false;
+    serial.sendMessage(command + "\r\n");
     std::unique_lock lk(messageMutex);
     cv.wait_for(lk, std::chrono::seconds(5), [this]() { return isNewMessage; });
     isNewMessage = false;
     if(receivedMessage.size() > 0)
     {
-        std::cout << "received message: " << receivedMessage << std::endl;
+        if(receivedMessage.find("OK") != std::string::npos)
+        {
+            result = true;
+        }
         receivedMessage = "";
     }
     else
@@ -32,5 +34,5 @@ bool GSMTasks::setConfig(std::string command)
         std::cout << "failed, timeout" << std::endl;
     }
 
-    return true;
+    return result;
 }

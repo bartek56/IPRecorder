@@ -9,7 +9,7 @@ class GSMManager
 {
 public:
     GSMManager(const std::string& port);
-    void Initilize();
+    bool Initilize();
 private:
     GSMTasks tasks;
 };
