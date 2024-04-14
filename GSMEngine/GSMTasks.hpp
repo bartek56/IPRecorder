@@ -16,6 +16,7 @@ private:
     std::condition_variable cv;
     bool isNewMessage;
     std::string receivedMessage;
+    bool waitForMessage(const std::string& msg, uint32_t sec);
 };
 
 #endif // GSMTASKS_HPP

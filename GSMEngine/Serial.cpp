@@ -91,11 +91,14 @@ void Serial::readThread()
                 {
                     std::lock_guard<std::mutex> lock(serialMutex);
                     bytesRead = read(fd, buffer.data() + totalBytesRead, sizeof(buffer) - totalBytesRead - 1);
+                    //std::cout << "buffer: " << buffer.data() << std::endl;
                 }
 
                 if(bytesRead > 0)
                 {
                     totalBytesRead += bytesRead;
+
+                    /// TODO if message is very short, it contains two times new line signs
                     if(static_cast<int>(buffer[totalBytesRead - 1]) == 10 && static_cast<int>(buffer[totalBytesRead - 2]) == 13)
                     {
                         newMessageNotify(buffer, totalBytesRead);
@@ -119,7 +122,6 @@ void Serial::sendThread()
             if(m_messagesQueue.size() > 0)
             {
                 auto newMessage = m_messagesQueue[0];
-                std::cout << "size " << newMessage.size() << std::endl;
                 int bytesWritten = 0;
                 {
                     std::lock_guard<std::mutex> lockSerial(serialMutex);
@@ -182,7 +184,6 @@ void Serial::setReadEvent(std::function<void(std::string &)> cb)
 void Serial::newMessageNotify(std::array<char, k_bufferSize> &buffer, uint32_t &sizeOfMessage)
 {
     std::string newMessage = std::string(buffer.data(), sizeOfMessage);
-    //std::cout << "new message: " << newMessage << std::endl;
     sizeOfMessage = 0;
     std::fill(buffer.begin(), buffer.end(), 0);
 

@@ -51,7 +51,6 @@ int main()
     while(ProgramState::running)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        //        serial.sendMessage("test message");
         if(ProgramState::running == false)
         {
             break;
@@ -60,7 +59,7 @@ int main()
 
         if(counter == 15)
         {
-            std::cout << "sendSMS" << std::endl;
+            std::cout << "sendSMS test message to 791942336" << std::endl;
             gsmManager.SendSms("test message", 791942336);
         }
     }
