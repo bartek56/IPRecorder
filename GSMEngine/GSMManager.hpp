@@ -10,6 +10,7 @@ class GSMManager
 public:
     GSMManager(const std::string& port);
     bool Initilize();
+    bool SendSms(const std::string& message, const int& number);
 private:
     GSMTasks tasks;
 };

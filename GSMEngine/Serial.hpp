@@ -25,6 +25,7 @@ public:
     void readThread();
     void sendThread();
     void sendMessage(std::string message);
+    void sendChar(char message);
 
     void setReadEvent(std::function<void(std::string&)> cb);
 

@@ -46,6 +46,7 @@ int main()
         return 0;
     }
     std::cout << "Initialization success" << std::endl;
+    static uint32_t counter = 0;
 
     while(ProgramState::running)
     {
@@ -54,6 +55,13 @@ int main()
         if(ProgramState::running == false)
         {
             break;
+        }
+        counter++;
+
+        if(counter == 15)
+        {
+            std::cout << "sendSMS" << std::endl;
+            gsmManager.SendSms("test message", 791942336);
         }
     }
 }

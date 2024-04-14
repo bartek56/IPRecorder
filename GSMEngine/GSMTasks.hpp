@@ -9,6 +9,7 @@ class GSMTasks
 public:
     GSMTasks(const std::string& port);
     bool setConfig(const std::string& command);
+    bool sendSms(const std::string& message, const uint32_t& number);
 private:
     Serial serial;
     std::mutex messageMutex;

@@ -43,7 +43,6 @@ Serial::Serial(std::string serialPort) : fd(-1), m_messagesQueue(), serialMutex(
 
     receiver = std::make_unique<std::thread>([this]() { this->readThread(); });
     sender = std::make_unique<std::thread>([this]() { this->sendThread(); });
-    std::cout << "initialized" << std::endl;
 }
 
 Serial::~Serial()
@@ -120,10 +119,19 @@ void Serial::sendThread()
             if(m_messagesQueue.size() > 0)
             {
                 auto newMessage = m_messagesQueue[0];
+                std::cout << "size " << newMessage.size() << std::endl;
                 int bytesWritten = 0;
                 {
                     std::lock_guard<std::mutex> lockSerial(serialMutex);
-                    bytesWritten = write(fd, newMessage.c_str(), newMessage.size());
+                    if(newMessage.size() == 2)
+                    {
+                        auto ptr = static_cast<char>(std::stoi(newMessage.c_str()));
+                        bytesWritten = write(fd, &ptr, 1);
+                    }
+                    else
+                    {
+                        bytesWritten = write(fd, newMessage.c_str(), newMessage.size());
+                    }
                 }
                 if(bytesWritten < 0)
                 {
@@ -154,6 +162,14 @@ void Serial::sendMessage(std::string message)
     std::lock_guard<std::mutex> lock(messageMutex);
     message.append("\r");
     m_messagesQueue.push_back(message);
+    isNewMessage = true;
+    cv.notify_one();
+}
+
+void Serial::sendChar(char message)
+{
+    std::lock_guard<std::mutex> lock(messageMutex);
+    m_messagesQueue.push_back(std::to_string(message));
     isNewMessage = true;
     cv.notify_one();
 }
