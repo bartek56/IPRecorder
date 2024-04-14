@@ -3,6 +3,7 @@ project(GSMEngine)
 cmake_minimum_required(VERSION 3.0)
 
 find_package (Threads REQUIRED)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 #set(BOOST_ROOT "/path/for/installed/boost")
 set(Boost_USE_STATIC_LIBS OFF)
@@ -19,7 +20,7 @@ add_library(gsm Serial.cpp GSMManager.cpp GSMTasks.cpp)
 target_link_libraries(gsm ${CMAKE_THREAD_LIBS_INIT})
 
 # library for python wrapper
-add_library(GSMEngine SHARED rectangleWrapper.cpp)
+add_library(GSMEngine SHARED GSMManagerWrapper.cpp)
 target_link_libraries(GSMEngine PUBLIC ${Boost_LIBRARIES} gsm)
 
 # desktop app
