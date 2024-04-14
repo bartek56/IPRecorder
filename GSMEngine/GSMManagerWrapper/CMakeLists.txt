@@ -10,7 +10,10 @@ include_directories(${Boost_INCLUDE_DIRS})
 find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
-find_package(Python COMPONENTS Interpreter Development)
+#too old cmake on IPRecorder
+#on the IPRecorder libboost_python should be located in /usr/lib, not in /usr/local/lib
+#find_package(Python COMPONENTS Interpreter)
+set(Python_EXECUTABLE "/usr/bin/python3")
 
 # library for python wrapper
 include_directories(${CMAKE_SOURCE_DIR}/GSMManager)
