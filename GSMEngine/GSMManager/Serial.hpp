@@ -15,7 +15,7 @@
 class Serial
 {
 public:
-    Serial(const std::string serialPort);
+    Serial(const std::string& serialPort);
     Serial(const Serial &serial) = delete;
     Serial &operator=(const Serial &) = delete;
     Serial(Serial &&serial) = delete;
@@ -30,7 +30,7 @@ public:
     void setReadEvent(std::function<void(std::string&)> cb);
 
 private:
-    static constexpr size_t k_bufferSize = 256;
+    static constexpr size_t k_bufferSize = 32;
     static constexpr size_t k_activeTimems = 400;
     static constexpr size_t k_sleepTimems = 100;
     static constexpr size_t k_activeTimeus = k_activeTimems * 1000;
@@ -48,7 +48,7 @@ private:
     std::unique_ptr<std::thread> sender;
     std::function<void(std::string&)> readEvent;
 
-    void newMessageNotify(std::array<char, k_bufferSize>& buffer, uint32_t& sizeOfMessage);
+    void newMessageNotify(std::array<char, k_bufferSize>& buffer, uint32_t& sizeOfMessage, const bool& timeout);
 };
 
 #endif// SERIAL_HPP
