@@ -80,7 +80,10 @@ void Serial::readThread()
         }
         else if(result == 0 && totalBytesRead > 0)
         {
-            newMessageNotify(buffer, totalBytesRead, true);
+            //std::cout << "timeout" << std::endl;
+            newMessageNotify(buffer.data(), totalBytesRead);
+            totalBytesRead = 0;
+            std::fill(buffer.begin(), buffer.end(), 0);
         }
 
         else if(result > 0)
@@ -96,22 +99,56 @@ void Serial::readThread()
                 if(bytesRead > 0)
                 {
                     totalBytesRead += bytesRead;
+                    char *startOfMessage = buffer.data();
+                    uint32_t sizeOfMessage = 0;
+                    bool itWasSend = false;
                     // skip begining of message, because sometimes it is CRLF. It's to short message to send
-                    for(auto iter = buffer.begin() + 2; (iter + 1) != buffer.end(); iter++)
+                    for(int i = 2; i < (totalBytesRead - 1); i++)
                     {
-                        auto asciValue1 = int(*iter);
-                        auto asciValue2 = int(*(iter + 1));
+                        auto asciValue1 = int(buffer[i]);
+                        auto asciValue2 = int(buffer[i + 1]);
+
+                        //std::cout << "byte " << i << " " << asciValue1 << std::endl;
 
                         if(asciValue1 == 0 && asciValue2 == 0)
                         {
                             break;
                         }
+                        sizeOfMessage++;
 
                         if(asciValue1 == 13 && asciValue2 == 10)
                         {
-                            newMessageNotify(buffer, totalBytesRead, false);
-                            break;
+                            i++;
+                            sizeOfMessage++;
+                            //std::cout << "byte " << i << " " << asciValue2 << "  it is CRLF " << std::endl;
+                            if(int(buffer[i + 1]) == 13 && int(buffer[i + 2]) == 10)
+                            {
+                                //std::cout << "skip CRLF " << std::endl;
+                                //std::cout << "byte " << i + 1 << " " << int(buffer[i + 1]) << std::endl;
+                                //std::cout << "byte " << i + 2 << " " << int(buffer[i + 2]) << std::endl;
+                                // skip CRLF duplicate
+                                i += 2;
+                            }
+                            newMessageNotify(startOfMessage, sizeOfMessage);
+                            sizeOfMessage = 0;
+                            startOfMessage = buffer.data() + i + 1;
+                            itWasSend = true;
+                            //std::cout << "i: " << i << "   totalBytesRead: " << totalBytesRead << std::endl;
+                            if(i + 1 >= totalBytesRead)
+                            {
+                                //std::cout << "no more data" << std::endl;
+                                totalBytesRead = 0;
+                                break;
+                            }
                         }
+                    }
+
+                    if(sizeOfMessage != 0 && itWasSend == true)
+                    {
+                        //std::cout << "rest of data" << std::endl;
+                        newMessageNotify(startOfMessage, sizeOfMessage);
+                        totalBytesRead = 0;
+                        std::fill(buffer.begin(), buffer.end(), 0);
                     }
                 }
             }
@@ -191,79 +228,10 @@ void Serial::setReadEvent(std::function<void(std::string &)> cb)
     readEvent = cb;
 }
 
-void Serial::newMessageNotify(std::array<char, k_bufferSize> &buffer, uint32_t &sizeOfMessage, const bool &timeout)
+void Serial::newMessageNotify(char *buffer, uint32_t &sizeOfMessage)
 {
-    if(!timeout)
-    {
-        // std::cout << "without timeout" << std::endl;
-        uint32_t bytes = 0;
-        char *startOfMessage = buffer.data();
-        for(auto iter = buffer.begin(); (iter + 1 != buffer.end()); iter++)
-        {
-            auto asciValue1 = int(*iter);
-            auto asciValue2 = int(*(iter + 1));
-
-            if(asciValue1 == 0 && asciValue2 == 0)
-            {
-                break;
-            }
-            bytes++;
-            // std::cout << "byte " << bytes << " - " << "hex: " << asciValue1 << std::endl;
-            if(asciValue1 == 13 && asciValue2 == 10)
-            {
-                iter++;
-                bytes += 1;
-                // skip sending message if begining is CRLF
-                if(bytes == 2)
-                {
-                    startOfMessage = startOfMessage + bytes;
-                    bytes = 0;
-                    continue;
-                }
-
-
-                // std::cout << "byte " << bytes << " - " << "hex: " << asciValue2 << std::endl;
-                // std::cout << "bytes of new message " << bytes << std::endl;
-                auto newMessage = std::string(startOfMessage, bytes);
-                startOfMessage = startOfMessage + bytes;
-
-                if(readEvent)
-                    readEvent(newMessage);
-                bytes = 0;
-            }
-        }
-        // send rest of data without CRLF
-        if(bytes > 0)
-        {
-            auto newMessage = std::string(startOfMessage, bytes);
-
-            if(readEvent)
-                readEvent(newMessage);
-        }
-    }
-    else
-    {
-        /// if message was came with timeout, it means message is without CRLF
-        // std::cout << "with timeout" << std::endl;
-        // uint32_t bytes = 0;
-        // for(auto iter = buffer.begin(); iter + 1 != buffer.end(); iter++)
-        // {
-        //    auto asciValue1 = int(*iter);
-        //    auto asciValue2 = int(*(iter + 1));
-        //
-
-        //     if(asciValue1 == 0 && asciValue2 == 0)
-        //     {
-        //         break;
-        //     }
-        //     std::cout << "byte " << bytes << " - "
-        //               << "hex: " << asciValue1 << std::endl;
-        //     bytes++;
-        // }
-        auto newMessage = std::string(buffer.data(), sizeOfMessage);
-        if(readEvent)
-            readEvent(newMessage);
-    }
-    sizeOfMessage = 0;
-    std::fill(buffer.begin(), buffer.end(), 0);
+    auto newMessage = std::string(buffer, sizeOfMessage);
+    //std::cout << "new message " << newMessage << std::endl;
+    if(readEvent)
+        readEvent(newMessage);
 }
