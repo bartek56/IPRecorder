@@ -10,6 +10,7 @@
 #include <iostream>
 #include <array>
 #include <mutex>
+#include "spdlog/spdlog.h"
 
 constexpr size_t Serial::k_sleepTimems;
 constexpr size_t Serial::k_activeTimems;
@@ -40,6 +41,9 @@ Serial::Serial(const std::string &serialPort) : fd(-1), m_messagesQueue(), seria
     // non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
     Serial::serialRunning.store(true);
+
+    spdlog::info("Support for floats {:03.2f}", 1.23456);
+    spdlog::info("Positional args are {1} {0}..", "too", "supported");
 
     receiver = std::make_unique<std::thread>([this]() { this->readThread(); });
     sender = std::make_unique<std::thread>([this]() { this->sendThread(); });
