@@ -63,6 +63,9 @@ void Serial::readThread()
     int bytesRead = 0;
     uint32_t totalBytesRead = 0;
 
+    uint32_t sizeOfMessage = 0;
+    char *startOfMessage = nullptr;
+
     while(serialRunning.load())
     {
         struct timeval timeout;
@@ -78,12 +81,12 @@ void Serial::readThread()
             std::cerr << "error with select()." << std::endl;
             break;
         }
-        else if(result == 0 && totalBytesRead > 0)
+        else if(result == 0 && sizeOfMessage > 0)
         {
-            //std::cout << "timeout" << std::endl;
-            newMessageNotify(buffer.data(), totalBytesRead);
+            std::cout << "timeout" << std::endl;
+            newMessageNotify(startOfMessage, sizeOfMessage);
             totalBytesRead = 0;
-            std::fill(buffer.begin(), buffer.end(), 0);
+            sizeOfMessage = 0;
         }
 
         else if(result > 0)
@@ -99,16 +102,15 @@ void Serial::readThread()
                 if(bytesRead > 0)
                 {
                     totalBytesRead += bytesRead;
-                    char *startOfMessage = buffer.data();
-                    uint32_t sizeOfMessage = 0;
-                    bool itWasSend = false;
+                    startOfMessage = buffer.data();
+                    sizeOfMessage = 0;
                     // skip begining of message, because sometimes it is CRLF. It's to short message to send
-                    for(int i = 2; i < (totalBytesRead - 1); i++)
+                    for(int i = 0; i < (totalBytesRead - 1); i++)
                     {
                         auto asciValue1 = int(buffer[i]);
                         auto asciValue2 = int(buffer[i + 1]);
 
-                        //std::cout << "byte " << i << " " << asciValue1 << std::endl;
+                        std::cout << "byte " << i << " " << asciValue1 << std::endl;
 
                         if(asciValue1 == 0 && asciValue2 == 0)
                         {
@@ -118,37 +120,35 @@ void Serial::readThread()
 
                         if(asciValue1 == 13 && asciValue2 == 10)
                         {
+                            if(i == 0)
+                            {
+                                std::cout << "skip first CRLF" << std::endl;
+                                i += 2;
+                                sizeOfMessage += 2;
+                                continue;
+                            }
                             i++;
                             sizeOfMessage++;
-                            //std::cout << "byte " << i << " " << asciValue2 << "  it is CRLF " << std::endl;
+                            std::cout << "byte " << i << " " << asciValue2 << "  it is CRLF " << std::endl;
                             if(int(buffer[i + 1]) == 13 && int(buffer[i + 2]) == 10)
                             {
-                                //std::cout << "skip CRLF " << std::endl;
-                                //std::cout << "byte " << i + 1 << " " << int(buffer[i + 1]) << std::endl;
-                                //std::cout << "byte " << i + 2 << " " << int(buffer[i + 2]) << std::endl;
+                                std::cout << "skip CRLF duplicate" << std::endl;
+                                std::cout << "byte " << i + 1 << " " << int(buffer[i + 1]) << std::endl;
+                                std::cout << "byte " << i + 2 << " " << int(buffer[i + 2]) << std::endl;
                                 // skip CRLF duplicate
                                 i += 2;
                             }
                             newMessageNotify(startOfMessage, sizeOfMessage);
                             sizeOfMessage = 0;
                             startOfMessage = buffer.data() + i + 1;
-                            itWasSend = true;
-                            //std::cout << "i: " << i << "   totalBytesRead: " << totalBytesRead << std::endl;
+                            std::cout << "i: " << i << "   totalBytesRead: " << totalBytesRead << std::endl;
                             if(i + 1 >= totalBytesRead)
                             {
-                                //std::cout << "no more data" << std::endl;
+                                std::cout << "no more data" << std::endl;
                                 totalBytesRead = 0;
                                 break;
                             }
                         }
-                    }
-
-                    if(sizeOfMessage != 0 && itWasSend == true)
-                    {
-                        //std::cout << "rest of data" << std::endl;
-                        newMessageNotify(startOfMessage, sizeOfMessage);
-                        totalBytesRead = 0;
-                        std::fill(buffer.begin(), buffer.end(), 0);
                     }
                 }
             }
@@ -231,7 +231,7 @@ void Serial::setReadEvent(std::function<void(std::string &)> cb)
 void Serial::newMessageNotify(char *buffer, uint32_t &sizeOfMessage)
 {
     auto newMessage = std::string(buffer, sizeOfMessage);
-    //std::cout << "new message " << newMessage << std::endl;
+    std::cout << "new message " << newMessage << std::endl;
     if(readEvent)
         readEvent(newMessage);
 }
