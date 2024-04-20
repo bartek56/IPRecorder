@@ -1,4 +1,4 @@
+
 [submodule "GSMEngine/3rdparty/spdlog"]
 	path = GSMEngine/3rdparty/spdlog
 	url = https://github.com/gabime/spdlog
-	branch = tags/v1.13.0
