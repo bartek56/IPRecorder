@@ -93,9 +93,9 @@ bool GSMTasks::setConfig(const std::string &command)
     return true;
 }
 
-bool GSMTasks::sendSms(const std::string &message, const uint32_t &number)
+bool GSMTasks::sendSms(const std::string &message, const std::string &number)
 {
-    std::string command = "AT+CMGS=\"+48" + std::to_string(number) + "\"";
+    std::string command = "AT+CMGS=\"" + number + "\"";
 
     serial.sendMessage(command + "\r\n");
     if(!waitForMessage(command, 5))
@@ -130,7 +130,7 @@ bool GSMTasks::sendSms(const std::string &message, const uint32_t &number)
         return false;
     }
 
-    std::cout << "message was send" << std::endl;
+    //std::cout << "message was send" << std::endl;
     return true;
 }
 
