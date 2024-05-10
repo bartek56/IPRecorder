@@ -32,3 +32,13 @@ bool GSMManager::SendSms(const std::string &message, const int &number)
 {
     return tasks.sendSms(message, number);
 }
+
+bool GSMManager::isNewSms()
+{
+    return tasks.isNewSms();
+}
+
+Sms GSMManager::getLastSms()
+{
+    return tasks.getLastSms();
+}
