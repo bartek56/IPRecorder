@@ -93,7 +93,7 @@ bool GSMTasks::setConfig(const std::string &command)
     return true;
 }
 
-bool GSMTasks::sendSms(const std::string &message, const std::string &number)
+bool GSMTasks::sendSms(const std::string &number, const std::string &message)
 {
     std::string command = "AT+CMGS=\"" + number + "\"";
 

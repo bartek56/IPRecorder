@@ -65,7 +65,7 @@ int main()
 
         if(gsmManager.isNewSms())
         {
-            auto sms = gsmManager.getLastSms();
+            auto sms = gsmManager.getSms();
             std::cout << "new SMS:" << std::endl;
             std::cout << sms.dateAndTime << std::endl;
             std::cout << sms.number << ": " << sms.msg << std::endl;

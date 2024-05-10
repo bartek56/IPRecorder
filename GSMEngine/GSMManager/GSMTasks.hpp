@@ -18,7 +18,7 @@ class GSMTasks
 public:
     GSMTasks(const std::string& port);
     bool setConfig(const std::string& command);
-    bool sendSms(const std::string& message, const std::string& number);
+    bool sendSms(const std::string& number, const std::string& message);
     bool isNewSms();
     Sms getLastSms();
 private:

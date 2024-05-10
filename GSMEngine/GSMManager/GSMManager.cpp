@@ -28,9 +28,9 @@ bool GSMManager::Initilize()
     return result;
 }
 
-bool GSMManager::SendSms(const std::string &message, const std::string &number)
+bool GSMManager::SendSms(const std::string &number, const std::string &message)
 {
-    return tasks.sendSms(message, number);
+    return tasks.sendSms(number, message);
 }
 
 bool GSMManager::isNewSms()
@@ -38,7 +38,7 @@ bool GSMManager::isNewSms()
     return tasks.isNewSms();
 }
 
-Sms GSMManager::getLastSms()
+Sms GSMManager::getSms()
 {
     return tasks.getLastSms();
 }
