@@ -6,7 +6,7 @@ GSMManager::GSMManager(const std::string &port) : tasks(port)
 {
 }
 
-bool GSMManager::Initilize()
+bool GSMManager::initilize()
 {
     auto setConfig = [&](const std::string &command)
     {
@@ -28,12 +28,12 @@ bool GSMManager::Initilize()
     return result;
 }
 
-bool GSMManager::SendSms(const std::string &number, const std::string &message)
+bool GSMManager::sendSms(const std::string &number, const std::string &message)
 {
     return tasks.addSmsTask(number, message);
 }
 
-bool GSMManager::SendSmsSync(const std::string &number, const std::string &message)
+bool GSMManager::sendSmsSync(const std::string &number, const std::string &message)
 {
     return tasks.sendSms(number, message);
 }

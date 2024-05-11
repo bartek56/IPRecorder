@@ -131,7 +131,7 @@ bool GSMTasks::setConfig(const std::string &command)
 
 bool GSMTasks::sendSmsSerial(const std::string &number, const std::string &message)
 {
-    std::cout << "sending " << message << "to " << number << std::endl;
+    std::cout << "sending message: \"" << message << "\" to " << number << std::endl;
     std::string command = "AT+CMGS=\"" + number + "\"";
 
     serial.sendMessage(command + "\r\n");
