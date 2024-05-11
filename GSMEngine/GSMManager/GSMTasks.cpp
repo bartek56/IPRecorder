@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 
+
 GSMTasks::GSMTasks(const std::string &port) : serial(port)
 {
     serial.setReadEvent(
@@ -74,6 +75,39 @@ GSMTasks::GSMTasks(const std::string &port) : serial(port)
                 }
                 cv.notify_one();
             });
+    tasksThread = std::make_unique<std::thread>([this]() { this->tasksFunc(); });
+    tasksRunning = true;
+}
+
+GSMTasks::~GSMTasks()
+{
+    tasksRunning.store(false);
+    tasksThread->join();
+    std::cout << "task was stopped" << std::endl;
+}
+
+bool GSMTasks::addSmsTask(const std::string &number, const std::string &message)
+{
+    {
+        std::lock_guard<std::mutex> lc(tasksMutex);
+        tasks.push(SmsRequest(number, message));
+        isTaskInQueue = true;
+    }
+    tasksCondition.notify_one();
+    return true;
+}
+
+bool GSMTasks::sendSms(const std::string &number, const std::string &message)
+{
+    //std::cout << "sendSms" << std::endl;
+    std::unique_lock<std::mutex> lk(tasksMutex);
+    cv.wait_for(lk, std::chrono::seconds(5), [this]() { return !isTaskInQueue; });
+    if(isTaskInQueue)
+    {
+        std::cout << "can not send message, queue is loo long" << std::endl;
+        return false;
+    }
+    return sendSmsSerial(number, message);
 }
 
 bool GSMTasks::setConfig(const std::string &command)
@@ -95,8 +129,9 @@ bool GSMTasks::setConfig(const std::string &command)
     return true;
 }
 
-bool GSMTasks::sendSms(const std::string &number, const std::string &message)
+bool GSMTasks::sendSmsSerial(const std::string &number, const std::string &message)
 {
+    std::cout << "sending " << message << "to " << number << std::endl;
     std::string command = "AT+CMGS=\"" + number + "\"";
 
     serial.sendMessage(command + "\r\n");
@@ -132,8 +167,38 @@ bool GSMTasks::sendSms(const std::string &number, const std::string &message)
         return false;
     }
 
-    //std::cout << "message was send" << std::endl;
+    std::cout << "message was send" << std::endl;
     return true;
+}
+
+void GSMTasks::tasksFunc()
+{
+    while(tasksRunning.load())
+    {
+        {
+            std::unique_lock<std::mutex> lk(tasksMutex);
+            if(tasks.empty())
+            {
+                cv.wait_for(lk, std::chrono::milliseconds(400), [this]() { return isTaskInQueue; });
+                if(!isTaskInQueue)
+                {
+                    //std::cout << "wait for task timeout" << std::endl;
+                    continue;
+                }
+            }
+            while(!tasks.empty())
+            {
+                auto task = tasks.front();
+                auto result = sendSmsSerial(task.number, task.message);
+                if(!result)
+                {
+                    std::cout << "Failed to send sms" << std::endl;
+                }
+                tasks.pop();
+            }
+            isTaskInQueue = false;
+        }
+    }
 }
 
 bool GSMTasks::isNewSms()
@@ -158,7 +223,7 @@ bool GSMTasks::waitForMessage(const std::string &msg, const uint32_t &sec)
         cv.wait_for(lk, std::chrono::seconds(sec), [this]() { return isNewMessage; });
         if(!isNewMessage)
         {
-            std::cout << "wait for message timeout" << std::endl;
+            std::cout << "wait for AT message timeout" << std::endl;
             return false;
         }
         isNewMessage = false;

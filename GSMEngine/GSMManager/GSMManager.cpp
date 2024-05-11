@@ -30,6 +30,11 @@ bool GSMManager::Initilize()
 
 bool GSMManager::SendSms(const std::string &number, const std::string &message)
 {
+    return tasks.addSmsTask(number, message);
+}
+
+bool GSMManager::SendSmsSync(const std::string &number, const std::string &message)
+{
     return tasks.sendSms(number, message);
 }
 

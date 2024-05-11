@@ -60,7 +60,10 @@ int main()
         if(counter == 15)
         {
             std::cout << "sendSMS test message to 791942336" << std::endl;
-            gsmManager.SendSms("+48791942336", "test message");
+            gsmManager.SendSms("+48791942336", "test async message");
+            std::cout << "after async message request" << std::endl;
+            gsmManager.SendSmsSync("+48791942336", "test sync message");
+            std::cout << "after sync message request" << std::endl;
         }
 
         if(gsmManager.isNewSms())

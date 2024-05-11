@@ -11,6 +11,7 @@ public:
     GSMManager(const std::string& port);
     bool Initilize();
     bool SendSms(const std::string& number, const std::string& message);
+    bool SendSmsSync(const std::string& number, const std::string& message);
     bool isNewSms();
     Sms getSms();
 private:
