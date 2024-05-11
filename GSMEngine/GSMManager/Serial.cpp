@@ -14,7 +14,7 @@
 constexpr size_t Serial::k_sleepTimems;
 constexpr size_t Serial::k_activeTimems;
 
-Serial::Serial(const std::string &serialPort) : fd(-1), m_messagesQueue(), serialMutex(), messageMutex(), serialRunning(true), receiver(nullptr), sender(nullptr)
+Serial::Serial(const std::string &serialPort) : fd(-1), m_messagesWriteQueue(), serialMutex(), messagesWriteMutex(), serialRunning(true), receiver(nullptr), sender(nullptr)
 {
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
@@ -60,17 +60,22 @@ void Serial::readThread()
     std::fill(buffer.begin(), buffer.end(), 0);
 
     fd_set read_fds;
+
+    // number of read bytes from serial on one sequence
     int bytesRead = 0;
+
+    // number of read bytes from serial
     uint32_t totalBytesRead = 0;
 
+    // size of message with end CRLF
     uint32_t sizeOfMessage = 0;
     char *startOfMessage = nullptr;
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = k_activeTimeus;
 
     while(serialRunning.load())
     {
-        struct timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = k_activeTimeus;
         FD_ZERO(&read_fds);
         FD_SET(fd, &read_fds);
 
@@ -81,6 +86,7 @@ void Serial::readThread()
             std::cerr << "error with select()." << std::endl;
             break;
         }
+        // timeout but some data was saved in buffer
         else if(result == 0 && sizeOfMessage > 0)
         {
             //std::cout << "timeout" << std::endl;
@@ -91,7 +97,7 @@ void Serial::readThread()
 
         else if(result > 0)
         {
-            // check if select is for out device
+            // check if select is for dedicated device
             if(FD_ISSET(fd, &read_fds))
             {
                 {
@@ -109,120 +115,48 @@ void Serial::readThread()
 
                     for(int i = sizeOfPreviousMessage; i < (totalBytesRead - 1); i++)
                     {
+                        sizeOfMessage++;
+
                         auto asciValue1 = int(buffer[i]);
                         auto asciValue2 = int(buffer[i + 1]);
 
                         //std::cout << "byte " << i << " " << asciValue1 << std::endl;
 
-                        if(asciValue1 == 0 && asciValue2 == 0)
-                        {
-                            break;
-                        }
-                        sizeOfMessage++;
-
                         if(asciValue1 == 13 && asciValue2 == 10)
                         {
+                            //std::cout << "byte " << i << " " << asciValue2 << "  it is CRLF " << std::endl;
                             if(i == 0)
                             {
-                                //std::cout << "skip first CRLF" << std::endl;
+                                // std::cout << "skip first CRLF" << std::endl;
                                 i += 1;
                                 sizeOfMessage += 1;
                                 continue;
                             }
                             i++;
                             sizeOfMessage++;
-                            //std::cout << "byte " << i << " " << asciValue2 << "  it is CRLF " << std::endl;
                             if(int(buffer[i + 1]) == 13 && int(buffer[i + 2]) == 10)
                             {
                                 //std::cout << "skip CRLF duplicate" << std::endl;
-                                //std::cout << "byte " << i + 1 << " " << int(buffer[i + 1]) << std::endl;
-                                //std::cout << "byte " << i + 2 << " " << int(buffer[i + 2]) << std::endl;
                                 // skip CRLF duplicate
                                 i += 2;
                             }
                             newMessageNotify(startOfMessage, sizeOfMessage);
                             sizeOfMessage = 0;
                             startOfMessage = buffer.data() + i + 1;
-                            //std::cout << "i: " << i << "   totalBytesRead: " << totalBytesRead << std::endl;
-                            if(i + 1 >= totalBytesRead)
-                            {
-                                //std::cout << "no more data" << std::endl;
-                                totalBytesRead = 0;
-                                break;
-                            }
                         }
+                    }
+                    if(sizeOfMessage == 0)
+                    {
+                        // no more data - next data put to start of buffer
+                        //std::cout << "no more data" << std::endl;
+                        totalBytesRead = 0;
                     }
                 }
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
     }
-    std::cout << "receiver closed" << std::endl;
-}
-
-void Serial::sendThread()
-{
-    while(serialRunning.load())
-    {
-        {
-            std::unique_lock<std::mutex> lk(messageMutex);
-            cv.wait_for(lk, std::chrono::milliseconds(k_activeTimems), [this]() { return isNewMessage; });
-
-            if(m_messagesQueue.size() > 0)
-            {
-                auto newMessage = m_messagesQueue[0];
-                int bytesWritten = 0;
-                {
-                    std::lock_guard<std::mutex> lockSerial(serialMutex);
-                    if(newMessage.size() == 2)
-                    {
-                        auto ptr = static_cast<char>(std::stoi(newMessage.c_str()));
-                        bytesWritten = write(fd, &ptr, 1);
-                    }
-                    else
-                    {
-                        bytesWritten = write(fd, newMessage.c_str(), newMessage.size());
-                    }
-                }
-                if(bytesWritten < 0)
-                {
-                    std::cerr << "Error to send data!" << std::endl;
-                }
-                /*
-                else
-                {
-                    std::cout << "Message was send: " << newMessage << std::endl;
-                }
-                */
-
-                m_messagesQueue.erase(m_messagesQueue.begin());
-            }
-            else
-            {
-                isNewMessage = false;
-            }
-        }
-        //std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
-    }
-    std::cout << "sender closed" << std::endl;
-}
-
-
-void Serial::sendMessage(std::string message)
-{
-    std::lock_guard<std::mutex> lock(messageMutex);
-    message.append("\r");
-    m_messagesQueue.push_back(message);
-    isNewMessage = true;
-    cv.notify_one();
-}
-
-void Serial::sendChar(char message)
-{
-    std::lock_guard<std::mutex> lock(messageMutex);
-    m_messagesQueue.push_back(std::to_string(message));
-    isNewMessage = true;
-    cv.notify_one();
+    //std::cout << "receiver closed" << std::endl;
 }
 
 void Serial::setReadEvent(std::function<void(std::string &)> cb)
@@ -230,10 +164,73 @@ void Serial::setReadEvent(std::function<void(std::string &)> cb)
     readEvent = cb;
 }
 
-void Serial::newMessageNotify(char *buffer, uint32_t &sizeOfMessage)
+void Serial::newMessageNotify(char *buffer, const uint32_t &sizeOfMessage)
 {
     auto newMessage = std::string(buffer, sizeOfMessage);
     //std::cout << "new message " << newMessage << std::endl;
     if(readEvent)
         readEvent(newMessage);
+}
+
+void Serial::sendThread()
+{
+    while(serialRunning.load())
+    {
+        {
+            std::unique_lock<std::mutex> lk(messagesWriteMutex);
+            sendCondition.wait_for(lk, std::chrono::milliseconds(k_activeTimems), [this]() { return isNewMessageToSend; });
+
+            if(m_messagesWriteQueue.size() == 0)
+            {
+                isNewMessageToSend = false;
+                continue;
+            }
+            auto newMessage = m_messagesWriteQueue.begin();
+            int bytesWritten = 0;
+            {
+                std::lock_guard<std::mutex> lockSerial(serialMutex);
+                // send char
+                if(newMessage->size() == 2)
+                {
+                    auto ptr = static_cast<char>(std::stoi(newMessage->c_str()));
+                    bytesWritten = write(fd, &ptr, 1);
+                }
+                else
+                {
+                    bytesWritten = write(fd, newMessage->c_str(), newMessage->size());
+                }
+            }
+            if(bytesWritten < 0)
+            {
+                std::cerr << "Error to send data!" << std::endl;
+            }
+            /*
+            else
+            {
+                std::cout << "Message was send: " << newMessage->data() << std::endl;
+            }
+            */
+
+            m_messagesWriteQueue.erase(newMessage);
+        }
+        //std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
+    }
+    //std::cout << "sender closed" << std::endl;
+}
+
+
+void Serial::sendMessage(const std::string &message)
+{
+    std::lock_guard<std::mutex> lock(messagesWriteMutex);
+    m_messagesWriteQueue.push_back(message + "\r");
+    isNewMessageToSend = true;
+    sendCondition.notify_one();
+}
+
+void Serial::sendChar(const char &message)
+{
+    std::lock_guard<std::mutex> lock(messagesWriteMutex);
+    m_messagesWriteQueue.push_back(std::to_string(message));
+    isNewMessageToSend = true;
+    sendCondition.notify_one();
 }

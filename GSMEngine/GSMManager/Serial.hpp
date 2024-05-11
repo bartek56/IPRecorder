@@ -22,12 +22,10 @@ public:
     Serial &operator=(const Serial &&) = delete;
     ~Serial();
 
-    void readThread();
-    void sendThread();
-    void sendMessage(std::string message);
-    void sendChar(char message);
-
     void setReadEvent(std::function<void(std::string&)> cb);
+
+    void sendMessage(const std::string &message);
+    void sendChar(const char &message);
 
 private:
     static constexpr size_t k_bufferSize = 256;
@@ -36,19 +34,21 @@ private:
     static constexpr size_t k_activeTimeus = k_activeTimems * 1000;
     static constexpr size_t k_sleepTimeus = k_sleepTimems * 1000;
     int fd;
-    std::vector<std::string> m_messagesQueue;
+    std::vector<std::string> m_messagesWriteQueue;
 
     std::mutex serialMutex;
-    std::condition_variable cv;
-    std::mutex messageMutex;
-    bool isNewMessage;
+    std::condition_variable sendCondition;
+    std::mutex messagesWriteMutex;
+    bool isNewMessageToSend;
 
     std::atomic<bool> serialRunning;
     std::unique_ptr<std::thread> receiver;
     std::unique_ptr<std::thread> sender;
     std::function<void(std::string&)> readEvent;
 
-    void newMessageNotify(char* buffer, uint32_t& sizeOfMessage);
+    void sendThread();
+    void readThread();
+    void newMessageNotify(char* buffer, const uint32_t& sizeOfMessage);
 };
 
 #endif// SERIAL_HPP

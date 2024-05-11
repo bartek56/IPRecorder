@@ -60,7 +60,7 @@ int main()
         if(counter == 15)
         {
             std::cout << "sendSMS test message to 791942336" << std::endl;
-            gsmManager.SendSms("test message", "+48791942336");
+            gsmManager.SendSms("+48791942336", "test message");
         }
 
         if(gsmManager.isNewSms())
@@ -69,7 +69,7 @@ int main()
             std::cout << "new SMS:" << std::endl;
             std::cout << sms.dateAndTime << std::endl;
             std::cout << sms.number << ": " << sms.msg << std::endl;
-            gsmManager.SendSms("thanks for message", sms.number);
+            gsmManager.SendSms(sms.number, "thanks for message");
         }
     }
 }
