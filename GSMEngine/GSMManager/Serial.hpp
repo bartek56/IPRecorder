@@ -15,11 +15,11 @@
 class Serial
 {
 public:
-    Serial(const std::string& serialPort);
-    Serial(const Serial &serial) = delete;
-    Serial &operator=(const Serial &) = delete;
-    Serial(Serial &&serial) = delete;
-    Serial &operator=(const Serial &&) = delete;
+    explicit Serial(const std::string& serialPort);
+    Serial(const Serial&) = delete;
+    Serial &operator=(const Serial&) = delete;
+    Serial(Serial&&) = delete;
+    Serial &operator=(Serial&&) = delete;
     ~Serial();
 
     void setReadEvent(std::function<void(std::string&)> cb);

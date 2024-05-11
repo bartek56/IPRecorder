@@ -8,7 +8,7 @@ GSMTasks::GSMTasks(const std::string &port) : serial(port)
     serial.setReadEvent(
             [&](const std::string &msg)
             {
-                auto split = [](std::string s, std::string delimiter)
+                auto split = [](std::string &s, const std::string &delimiter)
                 {
                     std::vector<std::string> vec;
                     size_t pos = 0;
@@ -26,13 +26,12 @@ GSMTasks::GSMTasks(const std::string &port) : serial(port)
                 static Sms sms{};
 
 
-                //std::cout << "new message " << msg << std::endl;
                 if(msg.find("+CMT:") != std::string::npos)
                 {
                     isNewSMS = true;
                     //std::cout << "new SMS: " << msg << std::endl;
-                    auto msg2 = msg.substr(0, msg.size() - 2);
-                    auto splitted = split(msg2, ",,");
+                    auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
+                    auto splitted = split(msgWithoutCRLF, ",,");
 
                     splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
                     splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
@@ -51,25 +50,28 @@ GSMTasks::GSMTasks(const std::string &port) : serial(port)
                     sms.msg = msg.substr(0, msg.size() - 2);
                     {
                         std::lock_guard<std::mutex> lc(smsMutex);
-                        receivedMessages.push(sms);
+                        receivedSmses.push(sms);
                     }
-
                     return;
                 }
 
                 if(msg.find("RING") != std::string::npos)
                 {
                     std::cout << "RING !!!" << std::endl;
+                    /// TODO
                     return;
                 }
                 if(msg.find("+CLIP:") != std::string::npos)
                 {
-                    std::cout << "Calling !!!" << std::endl;
+                    std::cout << "Calling !!! " << msg << std::endl;
+                    /// TODO
                     return;
                 }
-
-                receivedCommands.push(std::move(msg));
-                isNewMessage = true;
+                {
+                    std::lock_guard<std::mutex> lk(receivedCommandsMutex);
+                    receivedCommands.push(std::move(msg));
+                    isNewMessage = true;
+                }
                 cv.notify_one();
             });
 }
@@ -136,20 +138,21 @@ bool GSMTasks::sendSms(const std::string &number, const std::string &message)
 
 bool GSMTasks::isNewSms()
 {
-    return !receivedMessages.empty();
+    std::lock_guard<std::mutex> lc(smsMutex);
+    return !receivedSmses.empty();
 }
 
 Sms GSMTasks::getLastSms()
 {
     std::lock_guard<std::mutex> lc(smsMutex);
-    auto lastSms = receivedMessages.front();
-    receivedMessages.pop();
+    auto lastSms = receivedSmses.front();
+    receivedSmses.pop();
     return lastSms;
 }
 
-bool GSMTasks::waitForMessage(const std::string &msg, uint32_t sec)
+bool GSMTasks::waitForMessage(const std::string &msg, const uint32_t &sec)
 {
-    std::unique_lock<std::mutex> lk(messageMutex);
+    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
         cv.wait_for(lk, std::chrono::seconds(sec), [this]() { return isNewMessage; });
@@ -160,11 +163,10 @@ bool GSMTasks::waitForMessage(const std::string &msg, uint32_t sec)
         }
         isNewMessage = false;
     }
+
     auto newMessage = receivedCommands.front();
     receivedCommands.pop();
 
-
-    isNewMessage = false;
     if(newMessage.find(msg) == std::string::npos)
     {
         std::cout << "Another message was received then expected" << std::endl;

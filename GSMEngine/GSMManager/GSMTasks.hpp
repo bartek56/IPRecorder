@@ -16,20 +16,25 @@ struct Sms
 class GSMTasks
 {
 public:
-    GSMTasks(const std::string& port);
+    explicit GSMTasks(const std::string& port);
+    GSMTasks(const GSMTasks&) = delete;
+    GSMTasks& operator=(const GSMTasks&) = delete;
+    GSMTasks(GSMTasks&&) = delete;
+    GSMTasks& operator=(GSMTasks&&) = delete;
+
     bool setConfig(const std::string& command);
     bool sendSms(const std::string& number, const std::string& message);
     bool isNewSms();
     Sms getLastSms();
 private:
     Serial serial;
-    std::mutex messageMutex;
+    std::mutex receivedCommandsMutex;
     std::mutex smsMutex;
     std::condition_variable cv;
     bool isNewMessage;
     std::queue<std::string> receivedCommands;
-    std::queue<Sms> receivedMessages;
-    bool waitForMessage(const std::string& msg, uint32_t sec);
+    std::queue<Sms> receivedSmses;
+    bool waitForMessage(const std::string& msg, const uint32_t& sec);
 };
 
 #endif // GSMTASKS_HPP
