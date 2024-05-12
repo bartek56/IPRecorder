@@ -4,14 +4,8 @@
 #include <string>
 #include <queue>
 #include "Serial.hpp"
+#include "ATCommander.hpp"
 
-
-struct Sms
-{
-    std::string number;
-    std::string dateAndTime;
-    std::string msg;
-};
 
 struct SmsRequest
 {
@@ -37,25 +31,19 @@ public:
     bool sendSms(const std::string& number, const std::string& message);
     bool setConfig(const std::string& command);
     bool isNewSms();
+
     Sms getLastSms();
 private:
-    Serial serial;
-    std::mutex receivedCommandsMutex;
     std::mutex smsMutex;
-    std::condition_variable cv;
-    bool isNewMessage;
-    std::queue<std::string> receivedCommands;
     std::queue<Sms> receivedSmses;
-    bool waitForMessage(const std::string& msg, const uint32_t& sec);
-
+    ATCommander atCommander;
     std::atomic<bool> tasksRunning;
     std::unique_ptr<std::thread> tasksThread;
     std::queue<SmsRequest> tasks;
     std::condition_variable tasksCondition;
     std::mutex tasksMutex;
     bool isTaskInQueue;
-
-    bool sendSmsSerial(const std::string& number, const std::string& message);
+    std::condition_variable cv;
     void tasksFunc();
 };
 
