@@ -16,6 +16,7 @@ public:
     Sms getSms();
 private:
     GSMTasks tasks;
+    bool setDefaultConfig();
 };
 
 #endif // GSMMANAGER_HPP

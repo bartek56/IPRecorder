@@ -7,7 +7,7 @@
 GSMTasks::GSMTasks(const std::string &port) : atCommander(port, receivedSmses, smsMutex)
 {
     tasksThread = std::make_unique<std::thread>([this]() { this->tasksFunc(); });
-    tasksRunning = true;
+    tasksRunning.store(true);
 }
 
 GSMTasks::~GSMTasks()
@@ -35,7 +35,7 @@ void GSMTasks::tasksFunc()
             while(!tasks.empty())
             {
                 auto task = tasks.front();
-                auto result = atCommander.sendSmsSerial(task.number, task.message);
+                auto result = atCommander.sendSms(Sms(task.number, task.message));
                 if(!result)
                 {
                     std::cout << "Failed to send sms" << std::endl;
@@ -68,9 +68,8 @@ bool GSMTasks::sendSms(const std::string &number, const std::string &message)
         std::cout << "can not send message, queue is loo long" << std::endl;
         return false;
     }
-    return atCommander.sendSmsSerial(number, message);
+    return atCommander.sendSms(Sms(number, message));
 }
-
 
 bool GSMTasks::isNewSms()
 {
@@ -88,5 +87,12 @@ Sms GSMTasks::getLastSms()
 
 bool GSMTasks::setConfig(const std::string &command)
 {
+    std::unique_lock<std::mutex> lk(tasksMutex);
+    cv.wait_for(lk, std::chrono::seconds(5), [this]() { return !isTaskInQueue; });
+    if(isTaskInQueue)
+    {
+        std::cout << "can not set config, serial is busy" << std::endl;
+        return false;
+    }
     return atCommander.setConfig(command);
 }

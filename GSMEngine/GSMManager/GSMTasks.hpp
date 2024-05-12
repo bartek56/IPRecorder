@@ -42,7 +42,7 @@ private:
     std::queue<SmsRequest> tasks;
     std::condition_variable tasksCondition;
     std::mutex tasksMutex;
-    bool isTaskInQueue;
+    bool isTaskInQueue = false;
     std::condition_variable cv;
     void tasksFunc();
 };

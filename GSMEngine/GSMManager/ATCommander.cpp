@@ -94,6 +94,48 @@ bool ATCommander::setConfig(const std::string &command)
     return true;
 }
 
+bool ATCommander::sendSms(const Sms &sms)
+{
+    std::cout << "sending message: \"" << sms.msg << "\" to " << sms.number << std::endl;
+    std::string command = "AT+CMGS=\"" + sms.number + "\"";
+
+    serial.sendMessage(command + "\r\n");
+    if(!waitForMessage(command, 5))
+    {
+        std::cout << "error 1" << std::endl;
+        return false;
+    }
+
+    if(!waitForMessage(">", 5))
+    {
+        std::cout << "error 2" << std::endl;
+        return false;
+    }
+    serial.sendMessage(sms.msg);
+    serial.sendChar(0x1A);
+
+    if(!waitForMessage(sms.msg, 5))
+    {
+        std::cout << "error 3" << std::endl;
+        return false;
+    }
+
+    if(!waitForMessage("+CMGS", 5))
+    {
+        std::cout << "error 4" << std::endl;
+        return false;
+    }
+
+    if(!waitForMessage("OK", 5))
+    {
+        std::cout << "error 5" << std::endl;
+        return false;
+    }
+
+    std::cout << "message was send" << std::endl;
+    return true;
+}
+
 bool ATCommander::waitForMessage(const std::string &msg, const uint32_t &sec)
 {
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
@@ -117,47 +159,5 @@ bool ATCommander::waitForMessage(const std::string &msg, const uint32_t &sec)
         std::cout << msg << " != " << newMessage << std::endl;
         return false;
     }
-    return true;
-}
-
-bool ATCommander::sendSmsSerial(const std::string &number, const std::string &message)
-{
-    std::cout << "sending message: \"" << message << "\" to " << number << std::endl;
-    std::string command = "AT+CMGS=\"" + number + "\"";
-
-    serial.sendMessage(command + "\r\n");
-    if(!waitForMessage(command, 5))
-    {
-        std::cout << "error 1" << std::endl;
-        return false;
-    }
-
-    if(!waitForMessage(">", 5))
-    {
-        std::cout << "error 2" << std::endl;
-        return false;
-    }
-    serial.sendMessage(message);
-    serial.sendChar(0x1A);
-
-    if(!waitForMessage(message, 5))
-    {
-        std::cout << "error 3" << std::endl;
-        return false;
-    }
-
-    if(!waitForMessage("+CMGS", 5))
-    {
-        std::cout << "error 4" << std::endl;
-        return false;
-    }
-
-    if(!waitForMessage("OK", 5))
-    {
-        std::cout << "error 5" << std::endl;
-        return false;
-    }
-
-    std::cout << "message was send" << std::endl;
     return true;
 }

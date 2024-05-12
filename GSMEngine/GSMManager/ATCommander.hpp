@@ -7,6 +7,16 @@
 
 struct Sms
 {
+    Sms(const std::string& number, const std::string& msg) : number(number), dateAndTime(""), msg(msg)
+    {
+        if(number.find("+48") == std::string::npos)
+            throw std::runtime_error("number doesn't contain polish national prefix");
+    }
+    Sms() : number(""), dateAndTime(""),msg("")
+    {
+    }
+
+
     std::string number;
     std::string dateAndTime;
     std::string msg;
@@ -15,9 +25,9 @@ struct Sms
 class ATCommander
 {
 public:
-    ATCommander(const std::string &port, std::queue<Sms>& receivedSms, std::mutex& smsMutex);
+    explicit ATCommander(const std::string &port, std::queue<Sms>& receivedSms, std::mutex& smsMutex);
 
-    bool sendSmsSerial(const std::string& number, const std::string& message);
+    bool sendSms(const Sms& sms);
     bool setConfig(const std::string& command);
 private:
     Serial serial;
