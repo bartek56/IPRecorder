@@ -47,10 +47,10 @@ int main()
     signal(SIGINT, ProgramState::handleSigInt);  // Sygnał przerwania (Ctrl+C)
     signal(SIGTSTP, ProgramState::handleSigTstp);// Sygnał zawieszenia (Ctrl+Z)
 
-    //const std::string port = "/dev/ttyAMA0";// GSM serial on NAS
-    const std::string port = "/dev/pts/4";// virtual for testing
+    const std::string port = "/dev/ttyAMA0";// GSM serial on NAS
+    //const std::string port = "/dev/pts/4";// virtual for testing
     GSMManager gsmManager(port);
-    if(!gsmManager.Initilize())
+    if(!gsmManager.initilize())
     {
         std::cout << "initialization failed" << std::endl;
         return 0;
@@ -70,7 +70,19 @@ int main()
         if(counter == 15)
         {
             std::cout << "sendSMS test message to 791942336" << std::endl;
-            gsmManager.SendSms("test message", 791942336);
+            gsmManager.sendSms("+48791942336", "test async message");
+            std::cout << "after async message request" << std::endl;
+            gsmManager.sendSmsSync("+48791942336", "test sync message");
+            std::cout << "after sync message request" << std::endl;
+        }
+
+        if(gsmManager.isNewSms())
+        {
+            auto sms = gsmManager.getSms();
+            std::cout << "new SMS:" << std::endl;
+            std::cout << sms.dateAndTime << std::endl;
+            std::cout << sms.number << ": " << sms.msg << std::endl;
+            gsmManager.sendSms(sms.number, "thanks for message");
         }
     }
 }

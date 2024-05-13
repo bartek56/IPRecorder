@@ -22,9 +22,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES} GSMManager)
 
 
 execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_paths()['purelib'])"
+    COMMAND "${Python_EXECUTABLE}" -c "import sys; print(sys.path[-1])"
     OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+message("python library install path: ${PYTHON_SITE_PACKAGES}")
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${PYTHON_SITE_PACKAGES})

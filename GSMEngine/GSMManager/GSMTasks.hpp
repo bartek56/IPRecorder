@@ -4,20 +4,47 @@
 #include <string>
 #include <queue>
 #include "Serial.hpp"
+#include "ATCommander.hpp"
+
+
+struct SmsRequest
+{
+    SmsRequest(std::string num, std::string msg):
+        number(num), message(msg)
+    {
+    }
+    std::string number;
+    std::string message;
+};
+
 
 class GSMTasks
 {
 public:
-    GSMTasks(const std::string& port);
+    explicit GSMTasks(const std::string& port);
+    GSMTasks(const GSMTasks&) = delete;
+    GSMTasks& operator=(const GSMTasks&) = delete;
+    GSMTasks(GSMTasks&&) = delete;
+    GSMTasks& operator=(GSMTasks&&) = delete;
+    ~GSMTasks();
+    bool addSmsTask(const std::string& number, const std::string& message);
+    bool sendSms(const std::string& number, const std::string& message);
     bool setConfig(const std::string& command);
-    bool sendSms(const std::string& message, const uint32_t& number);
+    bool isNewSms();
+
+    Sms getLastSms();
 private:
-    Serial serial;
-    std::mutex messageMutex;
+    std::mutex smsMutex;
+    std::queue<Sms> receivedSmses;
+    ATCommander atCommander;
+    std::atomic<bool> tasksRunning;
+    std::unique_ptr<std::thread> tasksThread;
+    std::queue<SmsRequest> tasks;
+    std::condition_variable tasksCondition;
+    std::mutex tasksMutex;
+    bool isTaskInQueue = false;
     std::condition_variable cv;
-    bool isNewMessage;
-    std::queue<std::string> receivedMessages;
-    bool waitForMessage(const std::string& msg, uint32_t sec);
+    void tasksFunc();
 };
 
 #endif // GSMTASKS_HPP

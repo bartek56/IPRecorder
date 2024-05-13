@@ -6,7 +6,37 @@ GSMManager::GSMManager(const std::string &port) : tasks(port)
 {
 }
 
-bool GSMManager::Initilize()
+bool GSMManager::initilize()
+{
+    if(!setDefaultConfig())
+    {
+        std::cout << "Failed to set default configuration" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool GSMManager::sendSms(const std::string &number, const std::string &message)
+{
+    return tasks.addSmsTask(number, message);
+}
+
+bool GSMManager::sendSmsSync(const std::string &number, const std::string &message)
+{
+    return tasks.sendSms(number, message);
+}
+
+bool GSMManager::isNewSms()
+{
+    return tasks.isNewSms();
+}
+
+Sms GSMManager::getSms()
+{
+    return tasks.getLastSms();
+}
+
+bool GSMManager::setDefaultConfig()
 {
     auto setConfig = [&](const std::string &command)
     {
@@ -26,9 +56,4 @@ bool GSMManager::Initilize()
     result &= setConfig("AT+CLIP=1");
 
     return result;
-}
-
-bool GSMManager::SendSms(const std::string &message, const int &number)
-{
-    return tasks.sendSms(message, number);
 }
