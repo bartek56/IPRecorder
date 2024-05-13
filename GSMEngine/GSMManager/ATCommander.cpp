@@ -77,7 +77,6 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
 
 bool ATCommander::setConfig(const std::string &command)
 {
-    bool result = false;
     serial.sendMessage(command + "\r\n");
     if(!waitForMessage(command, 5))
     {
@@ -94,9 +93,9 @@ bool ATCommander::setConfig(const std::string &command)
     return true;
 }
 
-bool ATCommander::sendSms(const Sms &sms)
+bool ATCommander::sendSms(const SmsRequest &sms)
 {
-    std::cout << "sending message: \"" << sms.msg << "\" to " << sms.number << std::endl;
+    std::cout << "sending message: \"" << sms.message << "\" to " << sms.number << std::endl;
     std::string command = "AT+CMGS=\"" + sms.number + "\"";
 
     serial.sendMessage(command + "\r\n");
@@ -111,10 +110,10 @@ bool ATCommander::sendSms(const Sms &sms)
         std::cout << "error 2" << std::endl;
         return false;
     }
-    serial.sendMessage(sms.msg);
+    serial.sendMessage(sms.message);
     serial.sendChar(0x1A);
 
-    if(!waitForMessage(sms.msg, 5))
+    if(!waitForMessage(sms.message, 5))
     {
         std::cout << "error 3" << std::endl;
         return false;

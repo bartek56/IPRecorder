@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-GSMManager::GSMManager(const std::string &port) : tasks(port)
+GSMManager::GSMManager(const std::string &port) : atCommander(port, receivedSmses, smsMutex)
 {
 }
 
@@ -13,34 +13,39 @@ bool GSMManager::initilize()
         std::cout << "Failed to set default configuration" << std::endl;
         return false;
     }
+    tasks.init();
     return true;
 }
 
 bool GSMManager::sendSms(const std::string &number, const std::string &message)
 {
-    return tasks.addSmsTask(number, message);
+    return tasks.addTask(SmsRequest(number, message));
 }
 
 bool GSMManager::sendSmsSync(const std::string &number, const std::string &message)
 {
-    return tasks.sendSms(number, message);
+    return tasks.callTask(SmsRequest(number, message));
 }
 
 bool GSMManager::isNewSms()
 {
-    return tasks.isNewSms();
+    std::lock_guard<std::mutex> lc(smsMutex);
+    return !receivedSmses.empty();
 }
 
 Sms GSMManager::getSms()
 {
-    return tasks.getLastSms();
+    std::lock_guard<std::mutex> lc(smsMutex);
+    auto lastSms = receivedSmses.front();
+    receivedSmses.pop();
+    return lastSms;
 }
 
 bool GSMManager::setDefaultConfig()
 {
     auto setConfig = [&](const std::string &command)
     {
-        auto result = tasks.setConfig(command);
+        auto result = atCommander.setConfig(command);
         if(!result)
         {
             std::cout << "failed to set config: " << command << std::endl;
