@@ -13,7 +13,13 @@ bool GSMManager::initilize()
         std::cout << "Failed to set default configuration" << std::endl;
         return false;
     }
-    tasks.init();
+    tasks.init(
+            [&](const SmsRequest &sms)
+            {
+                std::cout << "task is calling!! " << sms.number << "  " << sms.message << std::endl;
+                atCommander.sendSms(sms);
+                return true;
+            });
     return true;
 }
 

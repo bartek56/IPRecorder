@@ -18,9 +18,10 @@ public:
     Tasks()
     {
    }
-    void init()
+    void init(std::function<bool(T)> func)
     {
-        task = [](T t){std::cout << "func from task" << std::endl;return true;};
+        //task = [](T t){std::cout << "func from task !!!!!!!!!!!!" << std::endl;return true;};
+        task = func;
 
         tasksThread = std::make_unique<std::thread>([this]() { this->tasksFunc(); });
         tasksRunning.store(true);
