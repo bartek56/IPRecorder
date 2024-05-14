@@ -15,10 +15,9 @@ template<typename T>
 class Tasks
 {
 public:
-    Tasks(std::function<bool(T)> func)
+    Tasks(std::function<bool(const T&)> func)
     {
         task = func;
-
         tasksThread = std::make_unique<std::thread>([this]() { this->tasksFunc(); });
         tasksRunning.store(true);
    }
@@ -54,7 +53,7 @@ public:
     }
 
 private:
-    std::function<bool(T)> task;
+    std::function<bool(const T&)> task;
     std::atomic<bool> tasksRunning;
     std::unique_ptr<std::thread> tasksThread;
     std::queue<T> tasks;
@@ -79,7 +78,7 @@ private:
                 }
                 while(!tasks.empty())
                 {
-                    T taskParameters = tasks.front();
+                    const T& taskParameters = tasks.front();
                     auto result = task(taskParameters);
                     if(!result)
                     {
