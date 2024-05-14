@@ -15,37 +15,34 @@ template<typename T>
 class Tasks
 {
 public:
-    Tasks()
+    Tasks(std::function<bool(T)> func)
     {
-   }
-    void init(std::function<bool(T)> func)
-    {
-        //task = [](T t){std::cout << "func from task !!!!!!!!!!!!" << std::endl;return true;};
         task = func;
 
         tasksThread = std::make_unique<std::thread>([this]() { this->tasksFunc(); });
         tasksRunning.store(true);
-    }
+   }
+
     ~Tasks()
     {
         tasksRunning.store(false);
         tasksThread->join();
-        //std::cout << "task was stopped" << std::endl;
+        std::cout << "task was stopped" << std::endl;
     }
+
     bool addTask(const T &t)
     {
         {
             std::lock_guard<std::mutex> lc(tasksMutex);
             tasks.push(t);
             isTaskInQueue = true;
-            std::cout << "task was added" << std::endl;
         }
         tasksCondition.notify_one();
         return true;
     }
+
     bool callTask(const T &t)
     {
-        std::cout << "call task" << std::endl;
         std::unique_lock<std::mutex> lk(tasksMutex);
         cv.wait_for(lk, std::chrono::seconds(5), [this]() { return !isTaskInQueue; });
         if(isTaskInQueue)
@@ -53,10 +50,8 @@ public:
             std::cout << "can not call task, queue of tasks is loo long" << std::endl;
             return false;
         }
-        std::cout << "before calling" << std::endl;
         return task(t);
     }
-
 
 private:
     std::function<bool(T)> task;
@@ -84,12 +79,8 @@ private:
                 }
                 while(!tasks.empty())
                 {
-                    std::cout << "get task" << std::endl;
                     T taskParameters = tasks.front();
-                    std::cout << "call task from queue" << std::endl;
-                    std::cout << "message 2 " << taskParameters.message << " number: " << taskParameters.number << std::endl;
                     auto result = task(taskParameters);
-                    std::cout << "after caling task from wueue" << std::endl;
                     if(!result)
                     {
                         std::cout << "Failed to execute task" << std::endl;
