@@ -1,4 +1,5 @@
 #include "GSMManager.hpp"
+#include "ATConfig.hpp"
 
 #include <iostream>
 
@@ -61,10 +62,10 @@ bool GSMManager::setDefaultConfig()
     };
 
     bool result = true;
-    result &= setConfig("AT");
-    result &= setConfig("AT+CMGF=1");
-    result &= setConfig("AT+CNMI=1,2,0,0");
-    result &= setConfig("AT+CLIP=1");
+    for(const auto &it : k_defaultConfig)
+    {
+        result &= setConfig(it);
+    }
 
     return result;
 }

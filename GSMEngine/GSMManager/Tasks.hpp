@@ -11,6 +11,10 @@
 #include <functional>
 #include <iostream>
 
+static constexpr uint32_t k_maxWaitingTimeoutForCallRequest = 5000;
+static constexpr uint32_t k_waitingTimeoutForNewTask = 400;
+
+
 template<typename T>
 class Tasks
 {
@@ -43,7 +47,7 @@ public:
     bool callTask(const T &t)
     {
         std::unique_lock<std::mutex> lk(tasksMutex);
-        cv.wait_for(lk, std::chrono::seconds(5), [this]() { return !isTaskInQueue; });
+        cv.wait_for(lk, std::chrono::milliseconds(k_maxWaitingTimeoutForCallRequest), [this]() { return !isTaskInQueue; });
         if(isTaskInQueue)
         {
             std::cout << "can not call task, queue of tasks is loo long" << std::endl;
@@ -69,7 +73,7 @@ private:
                 std::unique_lock<std::mutex> lk(tasksMutex);
                 if(tasks.empty())
                 {
-                    cv.wait_for(lk, std::chrono::milliseconds(400), [this]() { return isTaskInQueue; });
+                    cv.wait_for(lk, std::chrono::milliseconds(k_waitingTimeoutForNewTask), [this]() { return isTaskInQueue; });
                     if(!isTaskInQueue)
                     {
                         //std::cout << "wait for task timeout" << std::endl;

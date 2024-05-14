@@ -49,7 +49,9 @@ private:
 
     bool isNewMessage;
     std::condition_variable cv;
-    bool waitForMessage(const std::string& msg, const uint32_t& sec);
+    bool waitForMessage(const std::string& msg);
+    bool waitForConfirm(const std::string& msg);
+    bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
 };
 
 #endif // ATCOMMANDER_HPP

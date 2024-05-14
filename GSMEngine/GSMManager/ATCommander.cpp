@@ -1,4 +1,6 @@
 #include "ATCommander.hpp"
+#include "ATConfig.hpp"
+
 #include <algorithm>
 #include <iostream>
 
@@ -78,13 +80,13 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
 bool ATCommander::setConfig(const std::string &command)
 {
     serial.sendMessage(command + "\r\n");
-    if(!waitForMessage(command, 5))
+    if(!waitForConfirm(command))
     {
         std::cout << "Failed to set config 1" << std::endl;
         return false;
     }
 
-    if(!waitForMessage("OK", 5))
+    if(!waitForMessage("OK"))
     {
         std::cout << "Failed to set config 2" << std::endl;
         return false;
@@ -99,13 +101,13 @@ bool ATCommander::sendSms(const SmsRequest &sms)
     std::string command = "AT+CMGS=\"" + sms.number + "\"";
 
     serial.sendMessage(command + "\r\n");
-    if(!waitForMessage(command, 5))
+    if(!waitForConfirm(command))
     {
         std::cout << "error 1" << std::endl;
         return false;
     }
 
-    if(!waitForMessage(">", 5))
+    if(!waitForMessage(">"))
     {
         std::cout << "error 2" << std::endl;
         return false;
@@ -113,19 +115,19 @@ bool ATCommander::sendSms(const SmsRequest &sms)
     serial.sendMessage(sms.message);
     serial.sendChar(0x1A);
 
-    if(!waitForMessage(sms.message, 5))
+    if(!waitForConfirm(sms.message))
     {
         std::cout << "error 3" << std::endl;
         return false;
     }
 
-    if(!waitForMessage("+CMGS", 5))
+    if(!waitForMessage("+CMGS"))
     {
         std::cout << "error 4" << std::endl;
         return false;
     }
 
-    if(!waitForMessage("OK", 5))
+    if(!waitForConfirm("OK"))
     {
         std::cout << "error 5" << std::endl;
         return false;
@@ -135,12 +137,22 @@ bool ATCommander::sendSms(const SmsRequest &sms)
     return true;
 }
 
-bool ATCommander::waitForMessage(const std::string &msg, const uint32_t &sec)
+bool ATCommander::waitForMessage(const std::string &msg)
+{
+    return waitForMessageTimeout(msg, k_waitForMessageTimeout);
+}
+
+bool ATCommander::waitForConfirm(const std::string &msg)
+{
+    return waitForMessageTimeout(msg, k_waitForConfirmTimeout);
+}
+
+bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &microSec)
 {
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
-        cv.wait_for(lk, std::chrono::seconds(sec), [this]() { return isNewMessage; });
+        cv.wait_for(lk, std::chrono::microseconds(microSec), [this]() { return isNewMessage; });
         if(!isNewMessage)
         {
             std::cout << "wait for AT message timeout" << std::endl;
