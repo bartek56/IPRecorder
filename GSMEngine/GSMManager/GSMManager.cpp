@@ -1,8 +1,16 @@
 #include "GSMManager.hpp"
+#include "ATConfig.hpp"
 
 #include <iostream>
 
-GSMManager::GSMManager(const std::string &port) : tasks(port)
+GSMManager::GSMManager(const std::string &port)
+    : atCommander(port, receivedSmses, smsMutex), tasks(
+                                                          [&](const SmsRequest &sms)
+                                                          {
+                                                              //std::cout << "task is calling!! " << sms.number << "  " << sms.message << std::endl;
+                                                              atCommander.sendSms(sms);
+                                                              return true;
+                                                          })
 {
 }
 
@@ -18,29 +26,33 @@ bool GSMManager::initilize()
 
 bool GSMManager::sendSms(const std::string &number, const std::string &message)
 {
-    return tasks.addSmsTask(number, message);
+    return tasks.addTask(SmsRequest(number, message));
 }
 
 bool GSMManager::sendSmsSync(const std::string &number, const std::string &message)
 {
-    return tasks.sendSms(number, message);
+    return tasks.callTask(SmsRequest(number, message));
 }
 
 bool GSMManager::isNewSms()
 {
-    return tasks.isNewSms();
+    std::lock_guard<std::mutex> lc(smsMutex);
+    return !receivedSmses.empty();
 }
 
 Sms GSMManager::getSms()
 {
-    return tasks.getLastSms();
+    std::lock_guard<std::mutex> lc(smsMutex);
+    auto lastSms = receivedSmses.front();
+    receivedSmses.pop();
+    return lastSms;
 }
 
 bool GSMManager::setDefaultConfig()
 {
     auto setConfig = [&](const std::string &command)
     {
-        auto result = tasks.setConfig(command);
+        auto result = atCommander.setConfig(command);
         if(!result)
         {
             std::cout << "failed to set config: " << command << std::endl;
@@ -50,10 +62,10 @@ bool GSMManager::setDefaultConfig()
     };
 
     bool result = true;
-    result &= setConfig("AT");
-    result &= setConfig("AT+CMGF=1");
-    result &= setConfig("AT+CNMI=1,2,0,0");
-    result &= setConfig("AT+CLIP=1");
+    for(const auto &it : k_defaultConfig)
+    {
+        result &= setConfig(it);
+    }
 
     return result;
 }

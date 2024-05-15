@@ -1,9 +1,11 @@
 #ifndef GSMMANAGER_HPP
 #define GSMMANAGER_HPP
 
-#include "GSMTasks.hpp"
+#include "Tasks.hpp"
+#include "ATCommander.hpp"
 
 #include <string>
+
 
 class GSMManager
 {
@@ -15,7 +17,10 @@ public:
     bool isNewSms();
     Sms getSms();
 private:
-    GSMTasks tasks;
+    ATCommander atCommander;
+    Tasks<SmsRequest> tasks;
+    std::mutex smsMutex;
+    std::queue<Sms> receivedSmses;
     bool setDefaultConfig();
 };
 

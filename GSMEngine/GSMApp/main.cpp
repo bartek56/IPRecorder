@@ -1,4 +1,5 @@
 #include "GSMManager.hpp"
+#include "SerialConfig.hpp"
 #include <iostream>
 #include <csignal>
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
@@ -47,9 +48,7 @@ int main()
     signal(SIGINT, ProgramState::handleSigInt);  // Sygnał przerwania (Ctrl+C)
     signal(SIGTSTP, ProgramState::handleSigTstp);// Sygnał zawieszenia (Ctrl+Z)
 
-    const std::string port = "/dev/ttyAMA0";// GSM serial on NAS
-    //const std::string port = "/dev/pts/4";// virtual for testing
-    GSMManager gsmManager(port);
+    GSMManager gsmManager(SERIAL_PORT);
     if(!gsmManager.initilize())
     {
         std::cout << "initialization failed" << std::endl;
@@ -67,7 +66,7 @@ int main()
         }
         counter++;
 
-        if(counter == 15)
+        if(counter == 5)
         {
             std::cout << "sendSMS test message to 791942336" << std::endl;
             gsmManager.sendSms("+48791942336", "test async message");

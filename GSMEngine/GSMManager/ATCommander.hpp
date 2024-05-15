@@ -22,12 +22,22 @@ struct Sms
     std::string msg;
 };
 
+struct SmsRequest
+{
+    SmsRequest(std::string num, std::string msg):
+        number(num), message(msg)
+    {
+    }
+    std::string number;
+    std::string message;
+};
+
 class ATCommander
 {
 public:
     explicit ATCommander(const std::string &port, std::queue<Sms>& receivedSms, std::mutex& smsMutex);
 
-    bool sendSms(const Sms& sms);
+    bool sendSms(const SmsRequest& sms);
     bool setConfig(const std::string& command);
 private:
     Serial serial;
@@ -39,7 +49,9 @@ private:
 
     bool isNewMessage;
     std::condition_variable cv;
-    bool waitForMessage(const std::string& msg, const uint32_t& sec);
+    bool waitForMessage(const std::string& msg);
+    bool waitForConfirm(const std::string& msg);
+    bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
 };
 
 #endif // ATCOMMANDER_HPP

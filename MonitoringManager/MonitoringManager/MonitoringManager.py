@@ -66,7 +66,7 @@ def main():
 
     Logger.INFO("Ready")
     while not killer.kill_now:
-        notificationManager.readAT()
+        notificationManager.checkNewMessage()
         if (counter6s >= 12): # 12 x 0.5s = 6s
             Logger.DEBUG("6 sec")
             counter6s=0

@@ -26,6 +26,6 @@ execute_process(
     OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-message("python library install path: ${PYTHON_SITE_PACKAGES}")
+message(STATUS "python library install path: ${PYTHON_SITE_PACKAGES}")
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${PYTHON_SITE_PACKAGES})
