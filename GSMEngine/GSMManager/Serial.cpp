@@ -62,7 +62,7 @@ void Serial::readThread()
     fd_set read_fds;
 
     // number of read bytes from serial on one sequence
-    int bytesRead = 0;
+    ssize_t bytesRead = 0;
 
     // number of read bytes from serial
     uint32_t totalBytesRead = 0;
@@ -113,7 +113,7 @@ void Serial::readThread()
                     if(sizeOfPreviousMessage > 0)
                         sizeOfPreviousMessage -= 1;
 
-                    for(int i = sizeOfPreviousMessage; i < (totalBytesRead - 1); i++)
+                    for(uint32_t i = sizeOfPreviousMessage; i < (totalBytesRead - 1); i++)
                     {
                         sizeOfMessage++;
 
