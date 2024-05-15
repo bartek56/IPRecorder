@@ -103,7 +103,7 @@ class NotificationManager():
         for x in self.usersList:
             nameAndSurname = x.name + " " + x.surname
             number = self.phoneContacts.GetDefaultNumber(nameAndSurname)
-            self.gsmManager.sendSms(number, message)
+            self.gsmManager.sendSms("+48"+number, message)
 
     def sendSMS(self, number, message):
         self.gsmManager.sendSms("+48"+number, message) # TODO
@@ -126,7 +126,7 @@ class NotificationManager():
         contact = self.phoneContacts.LookingForContactByNumber(number)
         return contact
 
-    def readAT(self):
+    def checkNewMessage(self):
         if (not self.gsmManager.isNewSms()):
             return
         sms = self.gsmManager.getSms()
