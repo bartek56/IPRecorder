@@ -86,7 +86,7 @@ bool ATCommander::setConfig(const std::string &command)
         return false;
     }
 
-    if(!waitForMessage("OK"))
+    if(!waitForConfirm("OK"))
     {
         std::cout << "Failed to set config 2" << std::endl;
         return false;

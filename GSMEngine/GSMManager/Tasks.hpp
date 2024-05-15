@@ -11,7 +11,7 @@
 #include <functional>
 #include <iostream>
 
-static constexpr uint32_t k_maxWaitingTimeoutForCallRequest = 5000;
+static constexpr uint32_t k_maxWaitingTimeoutForCallRequest = 8000;
 static constexpr uint32_t k_waitingTimeoutForNewTask = 400;
 
 
