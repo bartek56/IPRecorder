@@ -1,4 +1,5 @@
 #include "GSMManager.hpp"
+#include "SerialConfig.hpp"
 #include <iostream>
 #include <csignal>
 
@@ -37,9 +38,7 @@ int main()
     signal(SIGINT, ProgramState::handleSigInt);  // Sygnał przerwania (Ctrl+C)
     signal(SIGTSTP, ProgramState::handleSigTstp);// Sygnał zawieszenia (Ctrl+Z)
 
-    const std::string port = "/dev/ttyAMA0";// GSM serial on NAS
-    //const std::string port = "/dev/pts/12";// virtual for testing
-    GSMManager gsmManager(port);
+    GSMManager gsmManager(SERIAL_PORT);
     if(!gsmManager.initilize())
     {
         std::cout << "initialization failed" << std::endl;

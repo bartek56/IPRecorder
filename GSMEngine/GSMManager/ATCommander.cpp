@@ -147,12 +147,12 @@ bool ATCommander::waitForConfirm(const std::string &msg)
     return waitForMessageTimeout(msg, k_waitForConfirmTimeout);
 }
 
-bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &microSec)
+bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &miliSec)
 {
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
-        cv.wait_for(lk, std::chrono::microseconds(microSec), [this]() { return isNewMessage; });
+        cv.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMessage; });
         if(!isNewMessage)
         {
             std::cout << "wait for AT message timeout" << std::endl;
