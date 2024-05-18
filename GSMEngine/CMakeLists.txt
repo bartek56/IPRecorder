@@ -13,7 +13,15 @@ else()
   add_definitions(-DSIMULATOR=0)
 endif()
 
-set(LOG_LEVEL 0)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(LOG_LEVEL 2)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LOG_LEVEL 1)
+else()
+    set(LOG_LEVEL 2)
+endif()
+
+#set(LOG_LEVEL 2)
 
 if(LOG_LEVEL EQUAL 0)
   add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
