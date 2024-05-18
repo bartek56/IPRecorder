@@ -1,6 +1,7 @@
 #ifndef TASKS_HPP
 #define TASKS_HPP
 
+#include "spdlog/spdlog.h"
 #include <string>
 #include <queue>
 #include <mutex>
@@ -30,7 +31,7 @@ public:
     {
         tasksRunning.store(false);
         tasksThread->join();
-        std::cout << "task was stopped" << std::endl;
+        SPDLOG_DEBUG("Tasks thread was stopped");
     }
 
     bool addTask(const T &t)
@@ -50,7 +51,7 @@ public:
         cv.wait_for(lk, std::chrono::milliseconds(k_maxWaitingTimeoutForCallRequest), [this]() { return !isTaskInQueue; });
         if(isTaskInQueue)
         {
-            std::cout << "can not call task, queue of tasks is loo long" << std::endl;
+            SPDLOG_ERROR("can not call task, queue of tasks is loo long");
             return false;
         }
         return task(t);
@@ -76,7 +77,7 @@ private:
                     cv.wait_for(lk, std::chrono::milliseconds(k_waitingTimeoutForNewTask), [this]() { return isTaskInQueue; });
                     if(!isTaskInQueue)
                     {
-                        //std::cout << "wait for task timeout" << std::endl;
+                        //SPDLOG_TRACE("wait for task timeout");
                         continue;
                     }
                 }
@@ -86,7 +87,7 @@ private:
                     auto result = task(taskParameters);
                     if(!result)
                     {
-                        std::cout << "Failed to execute task" << std::endl;
+                        SPDLOG_ERROR("Failed to execute task");
                     }
                     tasks.pop();
                 }

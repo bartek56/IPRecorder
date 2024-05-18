@@ -13,6 +13,27 @@ else()
   add_definitions(-DSIMULATOR=0)
 endif()
 
+set(LOG_LEVEL 0)
+
+if(LOG_LEVEL EQUAL 0)
+  add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+  message(STATUS "LOG level is set to TRACE")
+elseif(LOG_LEVEL EQUAL 1)
+  add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+  message(STATUS "LOG level is set to DEBUG")
+elseif(LOG_LEVEL EQUAL 2)
+  add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+  message(STATUS "LOG level is set to INFO")
+elseif(LOG_LEVEL EQUAL 3)
+  add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_WARNING)
+  message(STATUS "LOG level is set to WARNING")
+elseif(LOG_LEVEL EQUAL 4)
+  add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_ERROR)
+  message(STATUS "LOG level is set to ERROR")
+endif()
+
+
+
 set(SPDLOG_INCLUDE_DIR /home/bartosz/Documents/projects/IPRecorder/GSMEngine/3rdparty/spdlog/include)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(3rdparty/spdlog)

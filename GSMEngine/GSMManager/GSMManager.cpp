@@ -1,4 +1,5 @@
 #include "GSMManager.hpp"
+#include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
 #include <iostream>
@@ -7,7 +8,7 @@ GSMManager::GSMManager(const std::string &port)
     : atCommander(port, receivedSmses, smsMutex), tasks(
                                                           [&](const SmsRequest &sms)
                                                           {
-                                                              //std::cout << "task is calling!! " << sms.number << "  " << sms.message << std::endl;
+                                                              SPDLOG_TRACE("task is calling!!. number:{}, message:{} ", sms.number, sms.message);
                                                               atCommander.sendSms(sms);
                                                               return true;
                                                           })
@@ -18,7 +19,7 @@ bool GSMManager::initilize()
 {
     if(!setDefaultConfig())
     {
-        std::cout << "Failed to set default configuration" << std::endl;
+        SPDLOG_ERROR("Failed to set default configuration");
         return false;
     }
     return true;
@@ -55,7 +56,7 @@ bool GSMManager::setDefaultConfig()
         auto result = atCommander.setConfig(command);
         if(!result)
         {
-            std::cout << "failed to set config: " << command << std::endl;
+            SPDLOG_ERROR("Failed to set config: {}", command);
             return false;
         }
         return true;

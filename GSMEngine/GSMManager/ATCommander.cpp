@@ -1,4 +1,5 @@
 #include "ATCommander.hpp"
+#include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
 #include <algorithm>
@@ -30,7 +31,7 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 if(msg.find(SMS_RESPONSE) != std::string::npos)
                 {
                     isNewSMS = true;
-                    //std::cout << "new SMS: " << msg << std::endl;
+                    SPDLOG_DEBUG("new SMS: {}", msg);
                     auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
                     auto splitted = split(msgWithoutCRLF, ",,");
 
@@ -41,13 +42,14 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                     sms.number = number;
                     auto date = splitted[1];
                     sms.dateAndTime = date;
+                    SPDLOG_INFO("new SMS: {} {}", date, number);
 
                     return;
                 }
                 if(isNewSMS)
                 {
                     isNewSMS = false;
-                    //std::cout << "text of SMS: " << msg << std::endl;
+                    SPDLOG_INFO("{}", msg);
                     sms.msg = msg.substr(0, msg.size() - 2);
                     {
                         std::lock_guard<std::mutex> lc(smsMutex);
@@ -58,13 +60,13 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
 
                 if(msg.find(RING) != std::string::npos)
                 {
-                    std::cout << "RING !!!" << std::endl;
+                    SPDLOG_INFO("RING !!!");
                     /// TODO
                     return;
                 }
                 if(msg.find(CALLING) != std::string::npos)
                 {
-                    std::cout << "Calling !!! " << msg << std::endl;
+                    SPDLOG_INFO("Calling !!! {}", msg);
                     /// TODO
                     return;
                 }
@@ -82,13 +84,13 @@ bool ATCommander::setConfig(const std::string &command)
     serial.sendMessage(command + EOL);
     if(!waitForConfirm(command))
     {
-        std::cout << "Failed to set config 1" << std::endl;
+        SPDLOG_ERROR("Failed to set config {}", command);
         return false;
     }
 
     if(!waitForConfirm("OK"))
     {
-        std::cout << "Failed to set config 2" << std::endl;
+        SPDLOG_ERROR("Failed to set config {}", command);
         return false;
     }
 
@@ -97,44 +99,44 @@ bool ATCommander::setConfig(const std::string &command)
 
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
-    std::cout << "sending message: \"" << sms.message << "\" to " << sms.number << std::endl;
+    SPDLOG_DEBUG("sending message: \"{}\" to {}", sms.message, sms.number);
     const std::string sign = "=\"";
     std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
 
     serial.sendMessage(command + EOL);
     if(!waitForConfirm(command))
     {
-        std::cout << "error 1" << std::endl;
+        SPDLOG_ERROR("Error");
         return false;
     }
 
     if(!waitForMessage(">"))
     {
-        std::cout << "error 2" << std::endl;
+        SPDLOG_ERROR("Error");
         return false;
     }
+
     serial.sendMessage(sms.message);
     serial.sendChar(SUB);
-
     if(!waitForConfirm(sms.message))
     {
-        std::cout << "error 3" << std::endl;
+        SPDLOG_ERROR("Error");
         return false;
     }
 
     if(!waitForMessage(SMS_REQUEST))
     {
-        std::cout << "error 4" << std::endl;
+        SPDLOG_ERROR("Error");
         return false;
     }
 
     if(!waitForConfirm("OK"))
     {
-        std::cout << "error 5" << std::endl;
+        SPDLOG_ERROR("Error");
         return false;
     }
 
-    std::cout << "message was send" << std::endl;
+    SPDLOG_INFO("message was send");
     return true;
 }
 
@@ -156,7 +158,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
         cv.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMessage; });
         if(!isNewMessage)
         {
-            std::cout << "wait for AT message timeout" << std::endl;
+            SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
             return false;
         }
         isNewMessage = false;
@@ -167,8 +169,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
 
     if(newMessage.find(msg) == std::string::npos)
     {
-        std::cout << "Another message was received then expected" << std::endl;
-        std::cout << msg << " != " << newMessage << std::endl;
+        SPDLOG_ERROR("Another message was received then expected: {}!={}", msg, newMessage);
         return false;
     }
     return true;

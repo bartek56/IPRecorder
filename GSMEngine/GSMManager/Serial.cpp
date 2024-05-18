@@ -20,7 +20,7 @@ Serial::Serial(const std::string &serialPort) : fd(-1), m_messagesWriteQueue(), 
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
     {
-        std::cerr << "GSM serial is not connected on port: " << serialPort << std::endl;
+        SPDLOG_ERROR("GSM serial is not connected on port: {}", serialPort);
         throw std::runtime_error("Initialization failed");
     }
 
@@ -42,9 +42,6 @@ Serial::Serial(const std::string &serialPort) : fd(-1), m_messagesWriteQueue(), 
     fcntl(fd, F_SETFL, O_NONBLOCK);
     Serial::serialRunning.store(true);
 
-    spdlog::info("Support for floats {:03.2f}", 1.23456);
-    spdlog::info("Positional args are {1} {0}..", "too", "supported");
-
     receiver = std::make_unique<std::thread>([this]() { this->readThread(); });
     sender = std::make_unique<std::thread>([this]() { this->sendThread(); });
 }
@@ -55,7 +52,7 @@ Serial::~Serial()
     sender->join();
     receiver->join();
     close(fd);
-    std::cout << "Serial was closed" << std::endl;
+    SPDLOG_INFO("Serial was closed");
 }
 
 void Serial::readThread()
@@ -87,13 +84,13 @@ void Serial::readThread()
         int result = select(fd + 1, &read_fds, NULL, NULL, &timeout);
         if(result == -1)
         {
-            std::cerr << "error with select()." << std::endl;
+            SPDLOG_ERROR("error with select()");
             break;
         }
         // timeout but some data was saved in buffer
         else if(result == 0 && sizeOfMessage > 0)
         {
-            //std::cout << "timeout" << std::endl;
+            SPDLOG_TRACE("timeout");
             newMessageNotify(startOfMessage, sizeOfMessage);
             totalBytesRead = 0;
             sizeOfMessage = 0;
@@ -123,15 +120,15 @@ void Serial::readThread()
 
                         auto asciValue1 = int(buffer[i]);
                         auto asciValue2 = int(buffer[i + 1]);
+                        SPDLOG_TRACE("byte {} {}", i, asciValue1);
 
-                        //std::cout << "byte " << i << " " << asciValue1 << std::endl;
 
                         if(asciValue1 == 13 && asciValue2 == 10)
                         {
-                            //std::cout << "byte " << i << " " << asciValue2 << "  it is CRLF " << std::endl;
+                            SPDLOG_TRACE("byte {} {} it is CRLF", i, asciValue2);
                             if(i == 0)
                             {
-                                // std::cout << "skip first CRLF" << std::endl;
+                                SPDLOG_TRACE("skip first CRLF");
                                 i += 1;
                                 sizeOfMessage += 1;
                                 continue;
@@ -140,7 +137,7 @@ void Serial::readThread()
                             sizeOfMessage++;
                             if(int(buffer[i + 1]) == 13 && int(buffer[i + 2]) == 10)
                             {
-                                //std::cout << "skip CRLF duplicate" << std::endl;
+                                SPDLOG_TRACE("skip CRLF duplicate");
                                 // skip CRLF duplicate
                                 i += 2;
                             }
@@ -152,7 +149,7 @@ void Serial::readThread()
                     if(sizeOfMessage == 0)
                     {
                         // no more data - next data put to start of buffer
-                        //std::cout << "no more data" << std::endl;
+                        SPDLOG_TRACE("no more data");
                         totalBytesRead = 0;
                     }
                 }
@@ -160,7 +157,7 @@ void Serial::readThread()
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
     }
-    //std::cout << "receiver closed" << std::endl;
+    SPDLOG_DEBUG("receiver closed");
 }
 
 void Serial::setReadEvent(std::function<void(std::string &)> cb)
@@ -171,7 +168,7 @@ void Serial::setReadEvent(std::function<void(std::string &)> cb)
 void Serial::newMessageNotify(char *buffer, const uint32_t &sizeOfMessage)
 {
     auto newMessage = std::string(buffer, sizeOfMessage);
-    //std::cout << "new message " << newMessage << std::endl;
+    SPDLOG_DEBUG("new message {}", newMessage);
     if(readEvent)
         readEvent(newMessage);
 }
@@ -206,20 +203,20 @@ void Serial::sendThread()
             }
             if(bytesWritten < 0)
             {
-                std::cerr << "Error to send data!" << std::endl;
+                SPDLOG_ERROR("Error to send data");
             }
-            /*
+
             else
             {
-                std::cout << "Message was send: " << newMessage->data() << std::endl;
+                SPDLOG_DEBUG("Message was send {}", newMessage->data());
             }
-            */
+
 
             m_messagesWriteQueue.erase(newMessage);
         }
         //std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
     }
-    //std::cout << "sender closed" << std::endl;
+    SPDLOG_DEBUG("sender closed");
 }
 
 

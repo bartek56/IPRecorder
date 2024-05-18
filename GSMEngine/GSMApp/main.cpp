@@ -2,7 +2,6 @@
 #include "SerialConfig.hpp"
 #include <iostream>
 #include <csignal>
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_sinks.h"
 
@@ -33,7 +32,7 @@ std::atomic<bool> ProgramState::running;
 
 int main()
 {
-    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s:%!:%#] %v");
+    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s-%!:%#] %v");
     spdlog::set_level(spdlog::level::trace);
 
     SPDLOG_WARN("warn");
@@ -41,7 +40,6 @@ int main()
     SPDLOG_DEBUG("debug");
     SPDLOG_TRACE("trace");
 
-    std::cout << "start" << std::endl;
     ProgramState::running.store(true);
     ProgramState state;
     signal(SIGTERM, ProgramState::handleSigterm);// Sygnał zakończenia
@@ -51,10 +49,10 @@ int main()
     GSMManager gsmManager(SERIAL_PORT);
     if(!gsmManager.initilize())
     {
-        std::cout << "initialization failed" << std::endl;
+        SPDLOG_ERROR("initialization failed");
         return 0;
     }
-    std::cout << "Initialization success" << std::endl;
+    SPDLOG_INFO("Initialization success");
     static uint32_t counter = 0;
 
     while(ProgramState::running)
@@ -68,19 +66,17 @@ int main()
 
         if(counter == 5)
         {
-            std::cout << "sendSMS test message to 791942336" << std::endl;
+            SPDLOG_INFO("sendSMS test message to 791942336");
             gsmManager.sendSms("+48791942336", "test async message");
-            std::cout << "after async message request" << std::endl;
+            SPDLOG_INFO("after async message request");
             gsmManager.sendSmsSync("+48791942336", "test sync message");
-            std::cout << "after sync message request" << std::endl;
+            SPDLOG_INFO("after sync message request");
         }
 
         if(gsmManager.isNewSms())
         {
             auto sms = gsmManager.getSms();
-            std::cout << "new SMS:" << std::endl;
-            std::cout << sms.dateAndTime << std::endl;
-            std::cout << sms.number << ": " << sms.msg << std::endl;
+            SPDLOG_INFO("new SMS: {} {} {}", sms.dateAndTime, sms.number, sms.msg);
             gsmManager.sendSms(sms.number, "thanks for message");
         }
     }
