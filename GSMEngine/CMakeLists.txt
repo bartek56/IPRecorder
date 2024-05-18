@@ -40,9 +40,7 @@ elseif(LOG_LEVEL EQUAL 4)
   message(STATUS "LOG level is set to ERROR")
 endif()
 
-
-
-set(SPDLOG_INCLUDE_DIR /home/bartosz/Documents/projects/IPRecorder/GSMEngine/3rdparty/spdlog/include)
+set(SPDLOG_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/3rdparty/spdlog/include)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(3rdparty/spdlog)
 add_subdirectory(GSMManager)

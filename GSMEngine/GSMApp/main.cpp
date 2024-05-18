@@ -1,9 +1,8 @@
 #include "GSMManager.hpp"
 #include "SerialConfig.hpp"
+#include "spdlog/spdlog.h"
 #include <iostream>
 #include <csignal>
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/stdout_sinks.h"
 
 class ProgramState
 {
@@ -34,11 +33,6 @@ int main()
 {
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s-%!:%#] %v");
     spdlog::set_level(spdlog::level::trace);
-
-    SPDLOG_WARN("warn");
-    SPDLOG_INFO("info");
-    SPDLOG_DEBUG("debug");
-    SPDLOG_TRACE("trace");
 
     ProgramState::running.store(true);
     ProgramState state;
