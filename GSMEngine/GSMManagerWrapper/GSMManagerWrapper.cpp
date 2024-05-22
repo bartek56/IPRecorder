@@ -1,17 +1,13 @@
-#include <boost/python.hpp>
-#include "GSMManager.hpp"
-#include <string>
+#include <pybind11/pybind11.h>
 
-BOOST_PYTHON_MODULE(libGSMEngine)
+int add(int i, int j)
 {
-    using namespace boost::python;
+    return i + j;
+}
 
-    class_<Sms>("Sms").def_readwrite("dateAndTime", &Sms::dateAndTime).def_readwrite("number", &Sms::number).def_readwrite("msg", &Sms::msg);
+PYBIND11_MODULE(GSMEngine, m)
+{
+    m.doc() = "pybind11 example plugin";// optional module docstring
 
-    class_<GSMManager, boost::noncopyable>("GSMManager", init<std::string>())
-            .def("initialize", &GSMManager::initilize)
-            .def("sendSms", &GSMManager::sendSms)
-            .def("sendSmsSync", &GSMManager::sendSmsSync)
-            .def("isNewSms", &GSMManager::isNewSms)
-            .def("getSms", &GSMManager::getSms);
+    m.def("add", &add, "A function that adds two numbers");
 }
