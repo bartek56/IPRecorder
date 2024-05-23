@@ -1,13 +1,15 @@
 #include <pybind11/pybind11.h>
+#include "GSMManager.hpp"
 
-int add(int i, int j)
-{
-    return i + j;
-}
+namespace py = pybind11;
 
 PYBIND11_MODULE(GSMEngine, m)
 {
-    m.doc() = "pybind11 example plugin";// optional module docstring
-
-    m.def("add", &add, "A function that adds two numbers");
+    py::class_<GSMManager>(m, "GSMManager")
+            .def(py::init<const std::string &>())
+            .def("initialize", &GSMManager::initilize)
+            .def("sendSms", &GSMManager::sendSms)
+            .def("sendSmsSync", &GSMManager::sendSmsSync)
+            .def("isNewSms", &GSMManager::isNewSms)
+            .def("getSms", &GSMManager::getSms);
 }

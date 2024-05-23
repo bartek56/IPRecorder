@@ -5,15 +5,11 @@ include_directories(${PYTHON_INCLUDE_DIRS})
 
 #too old cmake on IPRecorder
 #on the IPRecorder libboost_python should be located in /usr/lib, not in /usr/local/lib
-#find_package(Python COMPONENTS Interpreter)
-#c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3-config --includes) -I3rdparty/pybind11/include GSMManagerWrapper/GSMManagerWrapper.cpp -o example$(python3-config --extension-suffix)
 
 # library for python wrapper
-include_directories(${CMAKE_SOURCE_DIR}/GSMManager)
-#include_directories(${CMAKE_SOURCE_DIR}/3rdparty/pybind)
+include_directories(${CMAKE_SOURCE_DIR}/GSMManager ${SPDLOG_INCLUDE_DIR})
 
 pybind11_add_module(${PROJECT_NAME} GSMManagerWrapper.cpp)
-
 
 set(Python_EXECUTABLE "/usr/bin/python3")
 execute_process(
