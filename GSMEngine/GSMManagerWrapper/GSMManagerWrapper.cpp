@@ -5,6 +5,8 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(GSMEngine, m)
 {
+    py::class_<Sms>(m, "Sms").def(py::init<>()).def_readwrite("number", &Sms::number).def_readwrite("dateAndTime", &Sms::dateAndTime).def_readwrite("msg", &Sms::msg);
+
     py::class_<GSMManager>(m, "GSMManager")
             .def(py::init<const std::string &>())
             .def("initialize", &GSMManager::initilize)
