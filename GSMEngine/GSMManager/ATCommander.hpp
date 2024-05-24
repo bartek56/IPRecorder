@@ -47,7 +47,7 @@ private:
     std::mutex receivedCommandsMutex;
     std::queue<std::string> receivedCommands;
 
-    bool isNewMessage;
+    bool isNewMessage=false;
     std::condition_variable cv;
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
