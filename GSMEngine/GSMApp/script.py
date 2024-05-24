@@ -1,6 +1,6 @@
 import GSMEngine as lib
 import signal
-
+from time import sleep
 
 class Killer:
     kill_now = False
@@ -16,9 +16,9 @@ class Killer:
 def main():
     print("start")
     killer = Killer()
-    gsm = lib.GSMManager("/dev/pts/8")
+    gsm = lib.GSMManager("/dev/pts/9")
     gsm.initialize()
-    gsm.sendSms("+48791942336", "hello world 1")
+    gsm.sendSms("+48791942336", "hello world")
     print("after sync message")
     #gsm.sendSmsSync("+48791942336", "hello world 2")
     #print("after async message")
@@ -29,6 +29,7 @@ def main():
             print(sms.dateAndTime, sms.number)
             print(sms.msg)
             gsm.sendSms(sms.number, "thanks for message")
+        sleep(0.2)
 
 
 if __name__ == "__main__":
