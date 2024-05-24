@@ -12,10 +12,10 @@
 #include <mutex>
 #include "spdlog/spdlog.h"
 
-constexpr size_t Serial::k_sleepTimems;
-constexpr size_t Serial::k_activeTimems;
 
-Serial::Serial(const std::string &serialPort) : fd(-1), m_messagesWriteQueue(), serialMutex(), messagesWriteMutex(), serialRunning(true), receiver(nullptr), sender(nullptr)
+Serial::Serial(const std::string &serialPort)
+    : fd(-1), m_messagesWriteQueue(), serialMutex(), sendCondition(), messagesWriteMutex(), isNewMessageToSend(false),
+      serialRunning(true), receiver(nullptr), sender(nullptr)
 {
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
@@ -179,7 +179,8 @@ void Serial::sendThread()
     {
         {
             std::unique_lock<std::mutex> lk(messagesWriteMutex);
-            sendCondition.wait_for(lk, std::chrono::milliseconds(k_activeTimems), [this]() { return isNewMessageToSend; });
+            sendCondition.wait_for(lk, std::chrono::milliseconds(k_activeTimems),
+                                   [this]() { return isNewMessageToSend; });
 
             if(m_messagesWriteQueue.size() == 0)
             {

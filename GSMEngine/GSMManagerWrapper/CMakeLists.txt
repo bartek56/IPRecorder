@@ -11,7 +11,6 @@ include_directories(${CMAKE_SOURCE_DIR}/GSMManager ${SPDLOG_INCLUDE_DIR})
 
 pybind11_add_module(${PROJECT_NAME} GSMManagerWrapper.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE GSMManager)
-
 set(Python_EXECUTABLE "/usr/bin/python3")
 execute_process(
     COMMAND "${Python_EXECUTABLE}" -c "import sys; print(sys.path[-1])"

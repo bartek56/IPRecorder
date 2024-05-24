@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <iostream>
 
-ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, std::mutex &smsMux) : serial(port), receivedSmses(receivedSms), smsMutex(smsMux)
+ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, std::mutex &smsMux)
+    : serial(port), receivedSmses(receivedSms), smsMutex(smsMux), receivedCommandsMutex(), receivedCommands(),
+      isNewMessage(false), cv()
 {
     serial.setReadEvent(
             [&](const std::string &msg)
