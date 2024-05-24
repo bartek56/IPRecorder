@@ -5,7 +5,7 @@ from Contacts import Contacts
 from StatusManager import IpRecorderStatus
 # from mailManager import Mail
 from Logger import Logger
-import libGSMEngine as GSMSerial
+import GSMEngine as GSMSerial
 
 
 class ActiveUser():
