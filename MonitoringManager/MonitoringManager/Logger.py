@@ -2,6 +2,7 @@ import datetime
 import inspect
 from enum import Enum
 from pydoc import ispackage
+import os
 
 class bcolors:
     WARNING = '\033[93m'
@@ -39,7 +40,7 @@ class SimpleLogger():
             if self.isPrinting:
                 print(bcolors.WARNING + log, bcolors.ENDC)
 
-    def ERROR(self, *args):        
+    def ERROR(self, *args):
         if self.logLevel.value <= LogLevel.ERROR.value:
             log = self.getLog("ERROR", args)
             self.writeToFile(log)
@@ -59,7 +60,7 @@ class SimpleLogger():
     def getLogText(self, args):
         log = ""
         for x in args:
-            log += x
+            log += str(x)
             log += " "
         return log
 
@@ -91,5 +92,9 @@ class SimpleLogger():
         self.isPrinting = print
         if not saveToFile and not print:
             print(bcolors.ERROR + "printing and saving to file is DISABLE !!!", bcolors.ENDC)
+        if saveToFile:
+            basedir = os.path.dirname(fileNameWihPath)
+            if not os.path.exists(basedir):
+                os.makedirs(basedir)
 
 Logger = SimpleLogger()

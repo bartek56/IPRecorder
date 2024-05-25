@@ -6,15 +6,7 @@ from NotificationManager import NotificationManager
 from CameraAnalyzer import CameraAnalyzer
 from Logger import Logger
 from Logger import LogLevel
-
-dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
-dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
-
-SMSDir = "/tmp/etc/scripts/SMS"
-LOGFile = "/tmp/var/log/MonitoringManager.log"
-GSMSerial="/dev/pts/2"
-ACTIVE_USERS_FILE="/tmp/etc/scripts/active_users.txt"
-CONTACTS_FILE="/etc/scripts/contacts.txt"
+import Config as CONFIG
 
 class Killer:
     kill_now = False
@@ -52,16 +44,16 @@ def splitSMS(fileAA):
 def main():
     killer = Killer()
 
-    Logger.settings(fileNameWihPath=LOGFile, saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
-    notificationManager = NotificationManager(ACTIVE_USERS_FILE, CONTACTS_FILE, GSMSerial)
+    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=True, showFilename=True, logLevel=LogLevel.DEBUG, print=True)
+    notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
     counter6s=0
     counter1min=0
 
     readyToNotifyBrama = True
     readyToNotifyAltanka = True
-    cameraAltanka = CameraAnalyzer(dirNameAltanka, "ALTANKA")
-    cameraBrama = CameraAnalyzer(dirNameBrama, "BRAMA")
+    cameraAltanka = CameraAnalyzer(CONFIG.dirNameAltanka, "ALTANKA", CONFIG.ALARM_LOG_FILE)
+    cameraBrama = CameraAnalyzer(CONFIG.dirNameBrama, "BRAMA", CONFIG.ALARM_LOG_FILE)
 
     if(cameraAltanka.theNewestDir == 0):
         Logger.ERROR("Error with Disk")
@@ -111,9 +103,9 @@ def main():
         counter6s=counter6s+1
 
         if notificationManager.readyToSMS:
-            listSMSFiles = os.listdir(SMSDir)
+            listSMSFiles = os.listdir(CONFIG.SMSDir)
             for x in listSMSFiles:
-                smsFile = os.path.join(SMSDir, x)
+                smsFile = os.path.join(CONFIG.SMSDir, x)
                 file = open(smsFile,"r")
                 text = file.read()
                 file.close()

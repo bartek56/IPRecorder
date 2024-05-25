@@ -3,11 +3,12 @@ import datetime
 from Logger import Logger
 
 class CameraAnalyzer():
-    def __init__(self, dirName, cameraName):
+    def __init__(self, dirName, cameraName, logFile):
         self.dirName = dirName
         self.cameraName = cameraName
         self.theNewestDir = self.getTheNewestDayDir(self.dirName)
-        if(self.theNewestDir == 0): 
+        self.logFile = logFile
+        if(self.theNewestDir == 0):
             Logger.ERROR("Error with Disk")
         else:
             self.countFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
@@ -18,7 +19,7 @@ class CameraAnalyzer():
             smsMessage = None
             newTheNewestDir = self.getTheNewestDayDir(self.dirName)
 
-            if(newTheNewestDir == 0): 
+            if(newTheNewestDir == 0):
                 Logger.ERROR("Error with Disk")
                 return "ERROR with Disk"
 
@@ -26,6 +27,8 @@ class CameraAnalyzer():
                 self.countFiles = 0
                 self.theNewestDir=newTheNewestDir
             newCountFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
+            Logger.DEBUG("old count of files:", self.countFiles)
+            Logger.DEBUG("new count of files:", newCountFiles)
 
             if(newCountFiles-self.countFiles>=3):
                 self.alarmLevelActive = True
@@ -34,7 +37,7 @@ class CameraAnalyzer():
                     self.alarmLevel+=1
                     Logger.INFO(info)
                     self.alarmLog(info)
-           
+
             if readyToNotify[0] and self.alarmLevelActive:
                 self.alarmLevelActive = False
                 if self.alarmLevel == 0:
@@ -54,11 +57,15 @@ class CameraAnalyzer():
                 self.alarmLog(info)
             self.countFiles=newCountFiles
             return smsMessage
-    
+
     def getTheNewestDayDir(self, dirName):
         if os.path.isdir(dirName):
             dirs = [d for d in os.listdir(dirName)]
-            dirs.remove('DVRWorkDirectory')
+            if "DVRWorkDirectory" in dirs:
+                dirs.remove('DVRWorkDirectory')
+            if(len(dirs)==0):
+                Logger.WARNING("Directory", dirName, "is empty")
+                return 0
             latest_dir=max(dirs, key=os.path.basename)
             return latest_dir
         else:
@@ -76,6 +83,6 @@ class CameraAnalyzer():
     def alarmLog(self, info):
         date_time = datetime.datetime.now().strftime("%Y/%m/%d, %H:%M:%S")
         answer = date_time + ": " + info + '\n'
-        file = open("/var/log/Alarm.log",'a')
+        file = open(self.logFile,'a')
         file.writelines(answer)
         file.close()

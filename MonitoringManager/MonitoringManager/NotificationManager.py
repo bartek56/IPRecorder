@@ -15,8 +15,8 @@ class ActiveUser():
 
 
 class NotificationManager():
-    def __init__(self, activeUsersFile="/etc/scripts/active_users.txt", contactsFile="/etc/scripts/contacts.txt", GSM_SERIAL="/dev/ttyAMA0"):
-        self.adminNumber = "987654321"
+    def __init__(self, activeUsersFile, contactsFile, GSM_SERIAL, adminNumber):
+        self.adminNumber = adminNumber
         self.ipRecorderStatus = IpRecorderStatus()
 #        self.mailManager = Mail()
         self.phoneContacts = Contacts(contactsFile)
