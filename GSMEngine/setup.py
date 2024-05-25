@@ -51,7 +51,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name='GSMEngine',
-    version='1.0.0',
+    version='1.0',
     author='Bartosz Brzozowski',
     author_email='bartosz.brzozowski23@gmail.com',
     description='Library for use GSM module',

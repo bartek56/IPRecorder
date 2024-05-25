@@ -16,7 +16,7 @@ class Killer:
 def main():
     print("start")
     killer = Killer()
-    gsm = lib.GSMManager("/dev/pts/9")
+    gsm = lib.GSMManager("/dev/pts/3")
     gsm.initialize()
     gsm.sendSms("+48791942336", "hello world")
     print("after sync message")
