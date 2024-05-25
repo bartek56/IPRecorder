@@ -10,7 +10,11 @@ from Logger import LogLevel
 dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
 dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
 
-SMSDir = "/etc/scripts/SMS"
+SMSDir = "/tmp/etc/scripts/SMS"
+LOGFile = "/tmp/var/log/MonitoringManager.log"
+GSMSerial="/dev/pts/2"
+ACTIVE_USERS_FILE="/tmp/etc/scripts/active_users.txt"
+CONTACTS_FILE="/etc/scripts/contacts.txt"
 
 class Killer:
     kill_now = False
@@ -48,8 +52,8 @@ def splitSMS(fileAA):
 def main():
     killer = Killer()
 
-    Logger.settings(fileNameWihPath="/var/log/MonitoringManager.log", saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
-    notificationManager = NotificationManager("/etc/scripts/active_users.txt")
+    Logger.settings(fileNameWihPath=LOGFile, saveToFile=True, showFilename=True, logLevel=LogLevel.INFO, print=False)
+    notificationManager = NotificationManager(ACTIVE_USERS_FILE, CONTACTS_FILE, GSMSerial)
 
     counter6s=0
     counter1min=0

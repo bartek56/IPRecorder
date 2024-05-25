@@ -67,7 +67,7 @@ class Contacts():
 
                 self.tel.append(Contact(contact[0], contact[1], emails, numbers))
         else:
-            Logger.WARNING("File with contacts does not exist!")
+            Logger.WARNING("File with contacts:", self.fileName, "does not exist!")
 
     def SaveToFile(self):
         f = open(self.fileName, "w")

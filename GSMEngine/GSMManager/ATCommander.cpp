@@ -138,7 +138,7 @@ bool ATCommander::sendSms(const SmsRequest &sms)
         return false;
     }
 
-    SPDLOG_INFO("message was send");
+    SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
     return true;
 }
 

@@ -15,13 +15,13 @@ class ActiveUser():
 
 
 class NotificationManager():
-    def __init__(self, activeUsersFile="/etc/scripts/active_users.txt"):
+    def __init__(self, activeUsersFile="/etc/scripts/active_users.txt", contactsFile="/etc/scripts/contacts.txt", GSM_SERIAL="/dev/ttyAMA0"):
         self.adminNumber = "987654321"
         self.ipRecorderStatus = IpRecorderStatus()
 #        self.mailManager = Mail()
-        self.phoneContacts = Contacts("/etc/scripts/contacts.txt")
+        self.phoneContacts = Contacts(contactsFile)
         self.readyToSMS = False
-        self.gsmManager = GSMSerial.GSMManager("/dev/ttyAMA0")
+        self.gsmManager = GSMSerial.GSMManager(GSM_SERIAL)
         self.gsmManager.initialize()
         time.sleep(3)
         self.readyToSMS = True

@@ -1,0 +1,3 @@
+{
+    "files": ["MonitoringManager/MonitoringManager.py","MonitoringManager/CameraAnaluzer.py","MonitoringManager/StatusManager.py","MonitoringManager/Contacts.py","MonitoringManager/mailManager.py","MonitoringManager/Logger.py","MonitoringManager/NotifiationManager.py","requirements.txt"]
+}

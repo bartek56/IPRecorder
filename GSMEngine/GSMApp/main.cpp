@@ -60,7 +60,7 @@ int main()
 
         if(counter == 5)
         {
-            SPDLOG_INFO("sendSMS test message to 791942336");
+            SPDLOG_INFO("sendSMS message \"hello world\" to 791942336");
             gsmManager.sendSms("+48791942336", "hello world");
             //SPDLOG_INFO("after async message request");
             //gsmManager.sendSmsSync("+48791942336", "test sync message");

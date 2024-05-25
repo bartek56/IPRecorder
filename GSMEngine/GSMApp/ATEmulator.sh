@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERIAL=/dev/pts/10
+SERIAL=/dev/pts/3
 MESSAGE="hello world"
 
 mode=$1

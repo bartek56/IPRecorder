@@ -1,10 +1,7 @@
-import serial
-import time
 import os
 import urllib.request
 import sh
 import subprocess
-from Logger import Logger
 
 dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
 dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'

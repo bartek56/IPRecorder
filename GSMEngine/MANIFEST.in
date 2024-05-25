@@ -1,0 +1,3 @@
+include GSMManager/*.cpp
+include GSMManagerWrapper/*.cpp
+include CMakeLists.txt
