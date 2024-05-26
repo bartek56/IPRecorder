@@ -45,6 +45,9 @@ class Contacts():
             lines = f.readlines()
             f.close()
             for x in lines:
+                if " " not in x:
+                    Logger.WARNING("Wrong contact in file")
+                    continue
                 x = x.strip()
                 contact = x.split(" ")
                 #contact[len(contact)-1].strip()
@@ -55,7 +58,7 @@ class Contacts():
                     if "@" in contact[dataIndex]:
                         emailWithType = contact[dataIndex].split(":")
                         email = Email()
-                        email.type = EmailType(emailWithType[0])                        
+                        email.type = EmailType(emailWithType[0])
                         email.email = emailWithType[1]
                         emails.append(email)
                     else:
@@ -103,15 +106,15 @@ class Contacts():
                     numbers += " "
 
             tempInfo = contact.name + " " + contact.surname + " " + numbers
-            print(tempInfo) 
-        print("\t******************")    
+            print(tempInfo)
+        print("\t******************")
 
-    def AddContact(self, name, surname, *data):                 
+    def AddContact(self, name, surname, *data):
         for newNumberOrEmailStruct in data:
             if isinstance(newNumberOrEmailStruct, Number):
                 if len(newNumberOrEmailStruct.number) != 9:
                     Logger.WARNING("wrong number")
-                    return 
+                    return
             if isinstance(newNumberOrEmailStruct, Email):
                 if  "@" not in newNumberOrEmailStruct.email:
                     Logger.WARNING("wrong mail")
@@ -127,19 +130,19 @@ class Contacts():
             if isinstance(newNumberOrEmail, Number):
                 newNumbersList.append(newNumberOrEmail)
             if isinstance(newNumberOrEmail, Email):
-                newEmailList.append(newNumberOrEmail)    
+                newEmailList.append(newNumberOrEmail)
 
         contact = Contact(name,surname, newEmailList, newNumbersList)
         self.tel.append(contact)
-    
+
     def RemoveContact(self, name, surname):
         index = 0
         for x in self.tel:
             if x.name == name and x.surname == surname:
                 self.tel.pop(index)
                 return True
-            index += 1     
-        return False        
+            index += 1
+        return False
 
     def SetSortingByName(self):
         def takeName(elem):
@@ -152,10 +155,10 @@ class Contacts():
     # TODO
     def ShowContactsSortedByName(self):
         self.ShowContacts()
-    
+
     # TODO
     def ShowContactsSortedBySurname(self):
-        self.ShowContacts()     
+        self.ShowContacts()
 
     def LookingForContacts(self, nameOrSurname):
         contacts = []
@@ -171,15 +174,15 @@ class Contacts():
                 contacts.append(x)
             for x in self.LookingForContactBySurName(nameOrSurname):
                 contacts.append(x)
-        
-        return contacts        
+
+        return contacts
 
     def LookingForContact(self, nameOrSurname):
         contacts = self.LookingForContacts(nameOrSurname)
         if len(contacts) ==1:
             return contacts[0]
         else:
-            return 
+            return
 
     def LookingForContactBySurName(self, surname):
         for contact in self.tel:
@@ -211,13 +214,13 @@ class Contacts():
                         return
             if len(newNumberStruct.number) != 9:
                 Logger.WARNING("wrong number")
-                return 
+                return
 
         for contact in self.tel:
             if contact.name == name and contact.surname == surname:
                 for newNumberStruct in numbers:
                     contact.numbers.append(newNumberStruct)
-    
+
     def RemoveNumbers(self, name, surname, *numbers):
         for index in range(len(self.tel)):
             if self.tel[index].name == name and self.tel[index].surname == surname:
@@ -230,10 +233,9 @@ class Contacts():
 
                 for structrm in numbersStructToRemove:
                     self.tel[index].numbers.remove(structrm)
-                    
-                       
+
                 return removed
-        return False        
+        return False
 
     def GetNumbers(self, nameOrSurname):
         numbers = []
@@ -245,7 +247,7 @@ class Contacts():
             for x in contact.numbers:
                 numbers.append(x.number)
             return numbers
-    
+
     def GetDefaultNumber(self, nameOrSurname):
         numbers = self.GetNumbers(nameOrSurname)
         if numbers != None and len(numbers)>0:
@@ -285,7 +287,7 @@ class Contacts():
                         return
             if "@" not in newEmailStruct.email:
                 Logger.WARNING("wrong email")
-                return 
+                return
 
         for contact in self.tel:
             if contact.name == name and contact.surname == surname:
@@ -304,9 +306,9 @@ class Contacts():
 
                 for structrm in emailsStructToRemove:
                     self.tel[index].emails.remove(structrm)
-                       
+
                 return removed
-        return False        
+        return False
 
     def GetEmails(self, nameOrSurname):
         emails = []
@@ -318,12 +320,12 @@ class Contacts():
             for x in contact.emails:
                 emails.append(x.email)
             return emails
-    
+
     def GetDefaultEmail(self, nameOrSurname):
         emails = self.GetEmails(nameOrSurname)
         if emails != None and len(emails)>0:
             return emails[0]
-     
+
     def setDefaultEmail(self, nameOrSurname, defaultEmail):
         contact = self.LookingForContact(nameOrSurname)
         if contact is None:
