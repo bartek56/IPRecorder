@@ -33,13 +33,13 @@ private:
     static constexpr size_t k_sleepTimems = 100;
     static constexpr size_t k_activeTimeus = k_activeTimems * 1000;
     static constexpr size_t k_sleepTimeus = k_sleepTimems * 1000;
-    int fd;
+    int fd=-1;
     std::vector<std::string> m_messagesWriteQueue;
 
     std::mutex serialMutex;
     std::condition_variable sendCondition;
     std::mutex messagesWriteMutex;
-    bool isNewMessageToSend;
+    bool isNewMessageToSend=false;
 
     std::atomic<bool> serialRunning;
     std::unique_ptr<std::thread> receiver;

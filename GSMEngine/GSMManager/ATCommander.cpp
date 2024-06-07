@@ -3,11 +3,9 @@
 #include "ATConfig.hpp"
 
 #include <algorithm>
-#include <iostream>
 
 ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, std::mutex &smsMux)
-    : serial(port), receivedSmses(receivedSms), smsMutex(smsMux), receivedCommandsMutex(), receivedCommands(),
-      isNewMessage(false), cv()
+    : serial(port), receivedSmses(receivedSms), smsMutex(smsMux)
 {
     serial.setReadEvent(
             [&](const std::string &msg)

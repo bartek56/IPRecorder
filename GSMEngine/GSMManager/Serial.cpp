@@ -13,9 +13,7 @@
 #include "spdlog/spdlog.h"
 
 
-Serial::Serial(const std::string &serialPort)
-    : fd(-1), m_messagesWriteQueue(), serialMutex(), sendCondition(), messagesWriteMutex(), isNewMessageToSend(false),
-      serialRunning(true), receiver(nullptr), sender(nullptr)
+Serial::Serial(const std::string &serialPort) : serialRunning(true)
 {
     fd = open(serialPort.c_str(), O_RDWR);
     if(fd == -1)
