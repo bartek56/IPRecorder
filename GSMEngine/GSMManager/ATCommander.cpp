@@ -26,11 +26,9 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 static bool isNewSMS = false;
                 static Sms sms{};
 
-
                 if(msg.find(SMS_RESPONSE) != std::string::npos)
                 {
                     isNewSMS = true;
-                    //std::cout << "new SMS: " << msg << std::endl;
                     auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
                     auto splitted = split(msgWithoutCRLF, ",,");
 
@@ -80,12 +78,6 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
 bool ATCommander::setConfig(const std::string &command)
 {
     serial.sendMessage(command + EOL);
-    if(!waitForConfirm(command))
-    {
-        std::cout << "Failed to set config 1" << std::endl;
-        return false;
-    }
-
     if(!waitForConfirm("OK"))
     {
         std::cout << "Failed to set config 2" << std::endl;
@@ -102,35 +94,23 @@ bool ATCommander::sendSms(const SmsRequest &sms)
     std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
 
     serial.sendMessage(command + EOL);
-    if(!waitForConfirm(command))
-    {
-        std::cout << "error 1" << std::endl;
-        return false;
-    }
-
     if(!waitForMessage(">"))
     {
-        std::cout << "error 2" << std::endl;
+        std::cout << "error 1" << std::endl;
         return false;
     }
     serial.sendMessage(sms.message);
     serial.sendChar(SUB);
 
-    if(!waitForConfirm(sms.message))
-    {
-        std::cout << "error 3" << std::endl;
-        return false;
-    }
-
     if(!waitForMessage(SMS_REQUEST))
     {
-        std::cout << "error 4" << std::endl;
+        std::cout << "error 2" << std::endl;
         return false;
     }
 
     if(!waitForConfirm("OK"))
     {
-        std::cout << "error 5" << std::endl;
+        std::cout << "error 3" << std::endl;
         return false;
     }
 
