@@ -130,6 +130,20 @@ bool ATCommander::setConfigATE0()
 
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
+    {
+        std::lock_guard<std::mutex> lk(receivedCommandsMutex);
+        if(!receivedCommands.empty())
+        {
+            std::cout << "msg queue is not empty, some message will be skipped !!!" << std::endl;
+            while(!receivedCommands.empty())
+            {
+                auto msg = receivedCommands.front();
+                std::cout << msg << std::endl;
+                receivedCommands.pop();
+                isNewMessage = false;
+            }
+        }
+    }
     std::cout << "sending message: \"" << sms.message << "\" to " << sms.number << std::endl;
     const std::string sign = "=\"";
     std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
@@ -199,7 +213,6 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
         }
         isNewMessage = false;
     }
-
     msg = receivedCommands.front();
     receivedCommands.pop();
     return true;
