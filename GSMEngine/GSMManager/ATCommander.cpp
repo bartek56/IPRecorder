@@ -26,6 +26,8 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 static bool isNewSMS = false;
                 static Sms sms{};
 
+                //std::cout << "new msg: " << msg << std::endl;
+
                 if(msg.find(SMS_RESPONSE) != std::string::npos)
                 {
                     isNewSMS = true;
@@ -73,6 +75,10 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 }
                 cv.notify_one();
             });
+    if(!setConfigATE0())
+    {
+        std::cout << "failed to set ATE0" << std::endl;
+    }
 }
 
 bool ATCommander::setConfig(const std::string &command)
@@ -85,6 +91,41 @@ bool ATCommander::setConfig(const std::string &command)
     }
 
     return true;
+}
+
+bool ATCommander::setConfigATE0()
+{
+    const std::string ATE0 = "ATE0";
+    serial.sendMessage(ATE0 + EOL);
+    std::string lastMessage;
+
+    if(!getMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
+        return false;
+
+    if(lastMessage.find("OK") != std::string::npos)
+    {
+        // it was set on the previous session
+        return true;
+    }
+    else if(lastMessage.find(ATE0) != std::string::npos)
+    {
+        // std::cout << "it is first setting, get next message" << std::endl;
+        if(!getMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
+            return false;
+
+        if(lastMessage.find("OK") != std::string::npos)
+        {
+            return true;
+        }
+    }
+    else
+    {
+        std::cout << "another message was received then expected: " << lastMessage << std::endl;
+        return false;
+    }
+
+    std::cout << "another message was received then expected 2: " << lastMessage << std::endl;
+    return false;
 }
 
 bool ATCommander::sendSms(const SmsRequest &sms)
@@ -130,6 +171,23 @@ bool ATCommander::waitForConfirm(const std::string &msg)
 
 bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &miliSec)
 {
+    std::string newMessage;
+    if(!getMessageWithTimeout(miliSec, newMessage))
+    {
+        return false;
+    }
+
+    if(newMessage.find(msg) == std::string::npos)
+    {
+        std::cout << "Another message was received then expected" << std::endl;
+        std::cout << msg << " != " << newMessage << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &msg)
+{
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
@@ -142,14 +200,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
         isNewMessage = false;
     }
 
-    auto newMessage = receivedCommands.front();
+    msg = receivedCommands.front();
     receivedCommands.pop();
-
-    if(newMessage.find(msg) == std::string::npos)
-    {
-        std::cout << "Another message was received then expected" << std::endl;
-        std::cout << msg << " != " << newMessage << std::endl;
-        return false;
-    }
     return true;
 }

@@ -39,6 +39,7 @@ public:
 
     bool sendSms(const SmsRequest& sms);
     bool setConfig(const std::string& command);
+    bool setConfigATE0();
 private:
     Serial serial;
     std::queue<Sms>& receivedSmses;
@@ -52,6 +53,7 @@ private:
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
     bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
+    bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
 };
 
 #endif // ATCOMMANDER_HPP
