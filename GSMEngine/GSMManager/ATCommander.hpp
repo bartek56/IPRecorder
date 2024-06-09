@@ -51,6 +51,8 @@ private:
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
     bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
+    bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
+    bool setConfigATE0();
 };
 
 #endif // ATCOMMANDER_HPP
