@@ -1,12 +1,26 @@
 import setuptools
 from setuptools.command.install import install
 import subprocess
+import shutil
 
 class CustomInstallCommand(install):
     """Customized setuptools install command - builds with PyInstaller."""
     def run(self):
         install.run(self)
         subprocess.call(['python3', 'build.py'])
+
+class PostInstallCommand(install):
+    def run(self):
+        install.run(self)
+
+        source = os.path.join(os.path.dirname(__file__), 'scripts', 'monitoring.service')
+
+        destDir = "/lib/systemd/system"
+
+        shutil.copy(source, destDir)
+        os.system('systemctl daemon-reload')
+        os.system('systemctl enable monitoring.service')
+
 
 setuptools.setup(
     name="MonitoringManager",
@@ -27,7 +41,7 @@ setuptools.setup(
     ],
     install_requires=['GSMEngine==1.0', 'sh'],
     python_requires='>=3.6',
-#    cmdclass={
-#        'install': CustomInstallCommand,
-#    }
+    cmdclass={
+        'install': PostInstallCommand,
+    }
 )

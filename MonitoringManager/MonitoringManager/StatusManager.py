@@ -17,9 +17,20 @@ class IpRecorderStatus:
            return False
 
     def checkMemory(self):
-        rootMemory = sh.awk( sh.grep(sh.df("-h"), "root"), "{print $3 \"/\" $2}")
-        diskMemory = sh.awk( sh.grep(sh.df("-h"), "INTENSO"), "{print $3 \"/\" $2}")
-        ramMemory = sh.awk( sh.grep(sh.df("-h"), "var/log"), "{print $3 \"/\" $2}")
+        # df -h | grep /dev/mmcblk0p2 | awk '{print $3 "/" $2}'
+        disks = sh.df('-h')
+        grep = sh.grep('mmcblk0p2', _in=disks)
+        grep = str(grep).strip()
+        rootMemory = sh.awk("{print $3 \"/\" $2}", _in=grep)
+
+        grep = sh.grep("8c47c0f4-500d",_in=disks)
+        grep = str(grep).strip()
+        diskMemory = sh.awk("{print $3 \"/\" $2}", _in=grep)
+
+        grep = sh.grep("/var/log",_in=disks)
+        grep = str(grep).strip()
+        ramMemory = sh.awk( "{print $3 \"/\" $2}", _in=grep)
+        
         rootMemory = str(rootMemory).strip()
         diskMemory = str(diskMemory).strip()
         ramMemory = str(ramMemory).strip()

@@ -24,28 +24,28 @@ class SimpleLogger():
             log = self.getLog("DEBUG", args)
             self.writeToFile(log)
             if self.isPrinting:
-                print(log)
+                print(log,flush=True)
 
     def INFO(self, *args):
         if self.logLevel.value <= LogLevel.INFO.value:
             log = self.getLog("INFO", args)
             self.writeToFile(log)
             if self.isPrinting:
-                print(log)
+                print(log,flush=True)
 
     def WARNING(self, *args):
         if self.logLevel.value <= LogLevel.WARNING.value:
             log = self.getLog("WARNING", args)
             self.writeToFile(log)
             if self.isPrinting:
-                print(bcolors.WARNING + log, bcolors.ENDC)
+                print(bcolors.WARNING + log, bcolors.ENDC, flush=True)
 
     def ERROR(self, *args):
         if self.logLevel.value <= LogLevel.ERROR.value:
             log = self.getLog("ERROR", args)
             self.writeToFile(log)
             if self.isPrinting:
-                print(bcolors.ERROR + log, bcolors.ENDC)
+                print(bcolors.ERROR + log, bcolors.ENDC, flush=True)
 
     def getLog(self, level, args):
         log = self.getTime()
@@ -91,7 +91,7 @@ class SimpleLogger():
         self.logLevel = logLevel
         self.isPrinting = print
         if not saveToFile and not print:
-            print(bcolors.ERROR + "printing and saving to file is DISABLE !!!", bcolors.ENDC)
+            print(bcolors.ERROR + "printing and saving to file is DISABLE !!!", bcolors.ENDC, flush=True)
         if saveToFile:
             basedir = os.path.dirname(fileNameWihPath)
             if not os.path.exists(basedir):
