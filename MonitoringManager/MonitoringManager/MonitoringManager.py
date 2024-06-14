@@ -44,7 +44,7 @@ def splitSMS(fileAA):
 def main():
     killer = Killer()
 
-    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=True, showFilename=True, logLevel=LogLevel.DEBUG, print=True)
+    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.INFO, print=True)
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
     counter6s=0

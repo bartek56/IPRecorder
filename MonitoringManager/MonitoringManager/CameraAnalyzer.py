@@ -69,6 +69,7 @@ class CameraAnalyzer():
             latest_dir=max(dirs, key=os.path.basename)
             return latest_dir
         else:
+            Logger.ERROR("Directory",dirName, "doesn't exist")
             return 0
 
     def getListOfFiles(self, dirName):

@@ -1,0 +1,14 @@
+[Unit]
+Description=Monitoring for IPRecorder
+After=rc-local.service
+
+[Service]
+Type=single
+Restart=always
+RestartSec=1800s
+ExecStart=MonitoringManager
+StandardOutput=append:/var/log/Monitoring.log
+StandardError=append:/var/log/Monitoring.log
+
+[Install]
+WantedBy=multi-user.target
