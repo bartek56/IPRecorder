@@ -21,7 +21,7 @@ else()
     set(LOG_LEVEL 2)
 endif()
 
-#set(LOG_LEVEL 2)
+set(LOG_LEVEL 1)
 
 if(LOG_LEVEL EQUAL 0)
   add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)

@@ -166,7 +166,7 @@ void Serial::setReadEvent(std::function<void(std::string &)> cb)
 void Serial::newMessageNotify(char *buffer, const uint32_t &sizeOfMessage)
 {
     auto newMessage = std::string(buffer, sizeOfMessage);
-    SPDLOG_DEBUG("new message {}", newMessage);
+    SPDLOG_TRACE("new message {}", newMessage);
     if(readEvent)
         readEvent(newMessage);
 }

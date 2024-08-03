@@ -27,7 +27,7 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 static bool isNewSMS = false;
                 static Sms sms{};
 
-                SPDLOG_DEBUG("new message: {}", msg);
+                SPDLOG_DEBUG("new AT message: {}", msg);
 
                 if(msg.find(SMS_RESPONSE) != std::string::npos)
                 {
@@ -42,14 +42,14 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                     sms.number = number;
                     auto date = splitted[1];
                     sms.dateAndTime = date;
-                    SPDLOG_INFO("new SMS: {} {}", date, number);
+                    SPDLOG_INFO("new SMS info: {} {}", date, number);
 
                     return;
                 }
                 if(isNewSMS)
                 {
                     isNewSMS = false;
-                    SPDLOG_INFO("{}", msg);
+                    SPDLOG_INFO("new SMS text: {}", msg);
                     sms.msg = msg.substr(0, msg.size() - 2);
                     {
                         std::lock_guard<std::mutex> lc(smsMutex);
@@ -70,6 +70,7 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                     /// TODO
                     return;
                 }
+                SPDLOG_DEBUG("New command:\"{}\"", msg);
                 {
                     std::lock_guard<std::mutex> lk(receivedCommandsMutex);
                     receivedCommands.push(std::move(msg));
@@ -194,7 +195,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
 
     if(newMessage.find(msg) == std::string::npos)
     {
-        SPDLOG_ERROR("another message was received then expected: \"{}\" != \"{}\"", msg, newMessage);
+        SPDLOG_ERROR("another message was received: \"{}\", expected: \"{}\", timeout[ms]:{}", newMessage, msg, miliSec);
         return false;
     }
     return true;

@@ -1,5 +1,5 @@
-dirNameBrama = '/sharedfolders/MONITORING/brama_cam'
-dirNameAltanka = '/sharedfolders/MONITORING/altanka_cam'
+dirNameBrama = '/srv/dev-disk-by-uuid-8c47c0f4-500d-404f-9b3f-b380f844edd1/MONITORING/brama_cam'
+dirNameAltanka = '/srv/dev-disk-by-uuid-8c47c0f4-500d-404f-9b3f-b380f844edd1/MONITORING/altanka_cam'
 
 SMSDir = "/etc/scripts/SMS"
 LOGFile = "/var/log/MonitoringManager.log"
