@@ -45,6 +45,8 @@ def main():
     killer = Killer()
 
     Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.INFO, print=True)
+    Logger.INFO(" ---------------- Start Monitoring ------------------ ")
+
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
     counter6s=0
@@ -60,7 +62,7 @@ def main():
         notificationManager.sendSMSAdmin("Error with Disk")
         exit()
 
-    Logger.INFO("Ready")
+    Logger.INFO("-------------- Initialization was finished -----------------")
     while not killer.kill_now:
         notificationManager.checkNewMessage()
         if (counter6s >= 12): # 12 x 0.5s = 6s
@@ -121,7 +123,7 @@ def main():
 
 #    notificationManager.phoneContacts.SaveToFile()
     notificationManager.saveToFile()
-    Logger.INFO("exit program")
+    Logger.INFO("-------------------- exit program ---------------------")
 
 if __name__ == '__main__':
     main()

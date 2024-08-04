@@ -29,7 +29,7 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
 
                 SPDLOG_DEBUG("new AT message: {}", msg);
 
-                if(msg.find(SMS_RESPONSE) != std::string::npos)
+                if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
                 {
                     isNewSMS = true;
                     auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
@@ -70,6 +70,11 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                     /// TODO
                     return;
                 }
+                if(msg.find(ERROR) != std::string::npos)
+                {
+                    SPDLOG_ERROR("ERROR !!!");
+                    return;
+                }
                 SPDLOG_DEBUG("New command:\"{}\"", msg);
                 {
                     std::lock_guard<std::mutex> lk(receivedCommandsMutex);
@@ -86,6 +91,7 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
 
 bool ATCommander::setConfig(const std::string &command)
 {
+    SPDLOG_DEBUG("set config message: {}", command);
     serial.sendMessage(command + EOL);
     if(!waitForConfirm("OK"))
     {
@@ -98,6 +104,7 @@ bool ATCommander::setConfig(const std::string &command)
 
 bool ATCommander::setConfigATE0()
 {
+    SPDLOG_DEBUG("Set Config ATE0");
     const std::string ATE0 = "ATE0";
     serial.sendMessage(ATE0 + EOL);
     std::string lastMessage;
@@ -142,8 +149,8 @@ bool ATCommander::sendSms(const SmsRequest &sms)
                 auto msg = receivedCommands.front();
                 SPDLOG_ERROR("{}", msg);
                 receivedCommands.pop();
-                isNewMessage = false;
             }
+            isNewMessage = false;
         }
     }
     SPDLOG_DEBUG("sending message: \"{}\" to {}", sms.message, sms.number);
@@ -203,18 +210,24 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
 
 bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &msg)
 {
+    SPDLOG_DEBUG("GetMessageWithTimeout {}ms", miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
+        SPDLOG_DEBUG("Queue of messages is empty, wait for new message, isNewMessage:{}", isNewMessage);
         cv.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMessage; });
         if(!isNewMessage)
         {
             SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
             return false;
         }
-        isNewMessage = false;
+        SPDLOG_DEBUG("Message was arrived");
     }
     msg = receivedCommands.front();
+    SPDLOG_DEBUG("Take message from the queue:\"{}\"", msg);
     receivedCommands.pop();
+    if(receivedCommands.empty())
+        isNewMessage = false;
+    
     return true;
 }

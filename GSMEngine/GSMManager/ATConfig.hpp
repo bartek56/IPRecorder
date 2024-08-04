@@ -22,6 +22,7 @@ static constexpr char SMS_RESPONSE [] = "+CMT:";
 static constexpr char AT_SMS_REQUEST[] = "AT+CMGS";
 static constexpr char SMS_REQUEST[] = "+CMGS";
 
+static constexpr char ERROR [] = "ERROR";
 static constexpr char RING [] = "RING";
 static constexpr char EOL[] = "\r\n";
 static constexpr char SUB = 0x1A;
