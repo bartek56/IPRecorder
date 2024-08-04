@@ -79,7 +79,6 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 {
                     std::lock_guard<std::mutex> lk(receivedCommandsMutex);
                     receivedCommands.push(std::move(msg));
-                    isNewMessage = true;
                 }
                 cv.notify_one();
             });
@@ -139,21 +138,8 @@ bool ATCommander::setConfigATE0()
 
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
-    {
-        std::lock_guard<std::mutex> lk(receivedCommandsMutex);
-        if(!receivedCommands.empty())
-        {
-            SPDLOG_ERROR("msg queue is not empty, some message will be skipped !!!");
-            while(!receivedCommands.empty())
-            {
-                auto msg = receivedCommands.front();
-                SPDLOG_ERROR("{}", msg);
-                receivedCommands.pop();
-            }
-            isNewMessage = false;
-        }
-    }
     SPDLOG_DEBUG("sending message: \"{}\" to {}", sms.message, sms.number);
+    clearQueue();
     const std::string sign = "=\"";
     std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
 
@@ -214,9 +200,8 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
-        SPDLOG_DEBUG("Queue of messages is empty, wait for new message, isNewMessage:{}", isNewMessage);
-        cv.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMessage; });
-        if(!isNewMessage)
+        cv.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return !receivedCommands.empty(); });
+        if(receivedCommands.empty())
         {
             SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
             return false;
@@ -226,8 +211,21 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
     msg = receivedCommands.front();
     SPDLOG_DEBUG("Take message from the queue:\"{}\"", msg);
     receivedCommands.pop();
-    if(receivedCommands.empty())
-        isNewMessage = false;
     
     return true;
+}
+
+void ATCommander::clearQueue()
+{
+    std::lock_guard<std::mutex> lk(receivedCommandsMutex);
+    if(!receivedCommands.empty())
+    {
+        SPDLOG_ERROR("msg queue is not empty, some message will be skipped !!!");
+        while(!receivedCommands.empty())
+        {
+            auto msg = receivedCommands.front();
+            SPDLOG_ERROR("{}", msg);
+            receivedCommands.pop();
+        }
+    }
 }

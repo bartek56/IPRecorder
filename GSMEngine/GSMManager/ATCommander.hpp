@@ -46,13 +46,13 @@ private:
     std::mutex receivedCommandsMutex;
     std::queue<std::string> receivedCommands;
 
-    bool isNewMessage=false;
     std::condition_variable cv;
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
     bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
     bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
     bool setConfigATE0();
+    void clearQueue();
 };
 
 #endif // ATCOMMANDER_HPP
