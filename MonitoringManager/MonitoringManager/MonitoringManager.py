@@ -49,7 +49,7 @@ def main():
 
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
-    counter6s=0
+    counter4s=0
     counter1min=0
 
     readyToNotifyBrama = True
@@ -65,9 +65,9 @@ def main():
     Logger.INFO("-------------- Initialization was finished -----------------")
     while not killer.kill_now:
         notificationManager.checkNewMessage()
-        if (counter6s >= 12): # 12 x 0.5s = 6s
-            Logger.DEBUG("6 sec")
-            counter6s=0
+        if (counter4s >= 8): # 8 x 0.5s = 4s
+            Logger.DEBUG("4 sec")
+            counter4s=0
             if not readyToNotifyAltanka or not readyToNotifyBrama:
                 counter1min+=1
                 if(counter1min >= 10): # 10 x 6s = 1min
@@ -102,7 +102,7 @@ def main():
                     break
 
 
-        counter6s=counter6s+1
+        counter4s=counter4s+1
 
         if notificationManager.readyToSMS:
             listSMSFiles = os.listdir(CONFIG.SMSDir)

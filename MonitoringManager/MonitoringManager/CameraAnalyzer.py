@@ -30,7 +30,7 @@ class CameraAnalyzer():
             Logger.DEBUG("old count of files:", self.countFiles)
             Logger.DEBUG("new count of files:", newCountFiles)
 
-            if(newCountFiles-self.countFiles>=3):
+            if(newCountFiles-self.countFiles>=2):
                 self.alarmLevelActive = True
                 if not readyToNotify[0]:
                     info = "ALARM " + self.cameraName + "- log level +1"
