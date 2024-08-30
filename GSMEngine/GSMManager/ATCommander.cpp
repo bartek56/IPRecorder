@@ -26,12 +26,12 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                 };
                 static bool isNewSMS = false;
                 static Sms sms{};
+                static std::chrono::time_point<std::chrono::steady_clock> newSmsTimestamp;
 
                 SPDLOG_DEBUG("new AT message: {}", msg);
 
                 if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
                 {
-                    isNewSMS = true;
                     auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
                     auto splitted = split(msgWithoutCRLF, ",,");
 
@@ -43,19 +43,30 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
                     auto date = splitted[1];
                     sms.dateAndTime = date;
                     SPDLOG_INFO("new SMS info: {} {}", date, number);
+                    newSmsTimestamp = std::chrono::steady_clock::now();
+                    isNewSMS = true;
 
                     return;
                 }
-                if(isNewSMS)
+
+                if (isNewSMS)
                 {
-                    isNewSMS = false;
-                    SPDLOG_INFO("new SMS text: {}", msg);
-                    sms.msg = msg.substr(0, msg.size() - 2);
+                    if((std::chrono::steady_clock::now() - newSmsTimestamp) < std::chrono::milliseconds(10))
                     {
-                        std::lock_guard<std::mutex> lc(smsMutex);
-                        receivedSmses.push(sms);
+                        isNewSMS = false;
+                        SPDLOG_INFO("new SMS text: {}", msg);
+                        sms.msg = msg.substr(0, msg.size() - 2);
+                        {
+                            std::lock_guard<std::mutex> lc(smsMutex);
+                            receivedSmses.push(sms);
+                        }
+                        return;
                     }
-                    return;
+                    else
+                    {
+                        SPDLOG_ERROR("Timeout before text message, after SMS info!");
+                        isNewSMS = false;
+                    }
                 }
 
                 if(msg.find(RING) != std::string::npos)
