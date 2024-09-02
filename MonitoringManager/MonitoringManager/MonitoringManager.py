@@ -121,7 +121,6 @@ def main():
 
         time.sleep(0.5)
 
-#    notificationManager.phoneContacts.SaveToFile()
     notificationManager.saveToFile()
     Logger.INFO("-------------------- exit program ---------------------")
 

@@ -4,95 +4,99 @@
 
 #include <algorithm>
 
-ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, std::mutex &smsMux)
-    : serial(port), receivedSmses(receivedSms), smsMutex(smsMux)
+
+void ATCommanderReader::operator()(const std::string &msg)
 {
-    serial.setReadEvent(
-            [&](const std::string &msg)
+    SPDLOG_DEBUG("new AT message: {}", msg);
+
+    if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
+    {
+        auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
+        auto splitted = split(msgWithoutCRLF, ",,");
+
+        splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
+        splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
+
+        auto number = split(splitted[0], " ")[1];
+        sms.number = number;
+        auto date = splitted[1];
+        sms.dateAndTime = date;
+        SPDLOG_INFO("new SMS info: {} {}", date, number);
+        newSmsTimestamp = std::chrono::steady_clock::now();
+        isNewSMS = true;
+
+        return;
+    }
+
+    if(isNewSMS)
+    {
+        if((std::chrono::steady_clock::now() - newSmsTimestamp) < std::chrono::milliseconds(110))
+        {
+            isNewSMS = false;
+            SPDLOG_INFO("new SMS text: {}", msg);
+            sms.msg = msg.substr(0, msg.size() - 2);
             {
-                auto split = [](std::string &s, const std::string &delimiter)
-                {
-                    std::vector<std::string> vec;
-                    size_t pos = 0;
-                    std::string token;
-                    while((pos = s.find(delimiter)) != std::string::npos)
-                    {
-                        token = s.substr(0, pos);
-                        vec.push_back(token);
-                        s.erase(0, pos + delimiter.length());
-                    }
-                    vec.push_back(s);
-                    return vec;
-                };
-                static bool isNewSMS = false;
-                static Sms sms{};
-                static std::chrono::time_point<std::chrono::steady_clock> newSmsTimestamp;
+                std::lock_guard<std::mutex> lc(m_smsMutex);
+                m_receivedSms.push(sms);
+            }
+            return;
+        }
+        else
+        {
+            SPDLOG_ERROR("Timeout before text message, after SMS info!");
+            isNewSMS = false;
+        }
+    }
 
-                SPDLOG_DEBUG("new AT message: {}", msg);
+    if(msg.find(RING) != std::string::npos)
+    {
+        SPDLOG_INFO("RING !!!");
+        /// TODO
+        return;
+    }
+    if(msg.find(CALLING) != std::string::npos)
+    {
+        SPDLOG_INFO("Calling !!! {}", msg);
+        /// TODO
+        return;
+    }
+    // NO CARRIER
+    // NO ANSWER
+    if(msg.find(ERROR) != std::string::npos)
+    {
+        SPDLOG_ERROR("ERROR !!!");
+        return;
+    }
+    SPDLOG_DEBUG("New command:\"{}\"", msg);
+    {
+        std::lock_guard<std::mutex> lk(m_receivedCommandsMutex);
+        m_receivedCommands.push(msg);
+    }
+    m_cv.notify_one();
+}
 
-                if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
-                {
-                    auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
-                    auto splitted = split(msgWithoutCRLF, ",,");
+std::vector<std::string> ATCommanderReader::split(std::string &s, const std::string &delimiter)
+{
+    std::vector<std::string> vec;
+    size_t pos = 0;
+    std::string token;
+    while((pos = s.find(delimiter)) != std::string::npos)
+    {
+        token = s.substr(0, pos);
+        vec.push_back(token);
+        s.erase(0, pos + delimiter.length());
+    }
+    vec.push_back(s);
+    return vec;
+}
 
-                    splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
-                    splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
+ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, std::mutex &smsMux)
+    : serial(port), receivedSmses(receivedSms), smsMutex(smsMux),
+      atCommanderReader(smsMux, receivedSms, receivedCommandsMutex, receivedCommands, cv)
+{
+    /// TODO HeartBeatMonitor - sending AT command to GSM module for checking state of module
+    serial.setReadEvent(atCommanderReader);
 
-                    auto number = split(splitted[0], " ")[1];
-                    sms.number = number;
-                    auto date = splitted[1];
-                    sms.dateAndTime = date;
-                    SPDLOG_INFO("new SMS info: {} {}", date, number);
-                    newSmsTimestamp = std::chrono::steady_clock::now();
-                    isNewSMS = true;
-
-                    return;
-                }
-
-                if (isNewSMS)
-                {
-                    if((std::chrono::steady_clock::now() - newSmsTimestamp) < std::chrono::milliseconds(10))
-                    {
-                        isNewSMS = false;
-                        SPDLOG_INFO("new SMS text: {}", msg);
-                        sms.msg = msg.substr(0, msg.size() - 2);
-                        {
-                            std::lock_guard<std::mutex> lc(smsMutex);
-                            receivedSmses.push(sms);
-                        }
-                        return;
-                    }
-                    else
-                    {
-                        SPDLOG_ERROR("Timeout before text message, after SMS info!");
-                        isNewSMS = false;
-                    }
-                }
-
-                if(msg.find(RING) != std::string::npos)
-                {
-                    SPDLOG_INFO("RING !!!");
-                    /// TODO
-                    return;
-                }
-                if(msg.find(CALLING) != std::string::npos)
-                {
-                    SPDLOG_INFO("Calling !!! {}", msg);
-                    /// TODO
-                    return;
-                }
-                if(msg.find(ERROR) != std::string::npos)
-                {
-                    SPDLOG_ERROR("ERROR !!!");
-                    return;
-                }
-                SPDLOG_DEBUG("New command:\"{}\"", msg);
-                {
-                    std::lock_guard<std::mutex> lk(receivedCommandsMutex);
-                    receivedCommands.push(std::move(msg));
-                }
-                cv.notify_one();
-            });
     if(!setConfigATE0())
     {
         SPDLOG_ERROR("failed to set ATE0");
@@ -199,7 +203,8 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
 
     if(newMessage.find(msg) == std::string::npos)
     {
-        SPDLOG_ERROR("another message was received: \"{}\", expected: \"{}\", timeout[ms]:{}", newMessage, msg, miliSec);
+        SPDLOG_ERROR("another message was received: \"{}\", expected: \"{}\", timeout[ms]:{}", newMessage, msg,
+                     miliSec);
         return false;
     }
     return true;
@@ -222,7 +227,7 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
     msg = receivedCommands.front();
     SPDLOG_DEBUG("Take message from the queue:\"{}\"", msg);
     receivedCommands.pop();
-    
+
     return true;
 }
 

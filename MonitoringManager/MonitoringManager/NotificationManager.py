@@ -22,8 +22,9 @@ class NotificationManager():
         self.phoneContacts = Contacts(contactsFile)
         self.readyToSMS = False
         self.gsmManager = GSMSerial.GSMManager(GSM_SERIAL)
-        self.gsmManager.initialize()
-        time.sleep(3)
+        if not self.gsmManager.initialize():
+            print("Initialization of GSM module was failed!")
+            #exit() # exception ?!
         self.readyToSMS = True
         self.usersList = []
         self.fileName = activeUsersFile
@@ -90,8 +91,6 @@ class NotificationManager():
             fileToSave.write(" ")
             fileToSave.write(user.surname)
             fileToSave.write("\n")
-
-        self.phoneContacts.SaveToFile()
 
 #    def sendMailNotification(self, subject, message):
 #        for x in self.usersList:

@@ -31,6 +31,34 @@ struct SmsRequest
     std::string message;
 };
 
+class ATCommanderReader
+{
+public:
+    ATCommanderReader(std::mutex &smsMux, std::queue<Sms> &receivedSmsQueue, std::mutex &receivedCommandsMutex,
+                      std::queue<std::string> &receivedCommands, std::condition_variable &cv)
+        : m_smsMutex(smsMux), m_receivedSms(receivedSmsQueue), m_receivedCommandsMutex(receivedCommandsMutex),
+          m_receivedCommands(receivedCommands), m_cv(cv)
+    {
+    }
+    void operator()(const std::string &msg);
+
+private:
+    std::mutex &m_smsMutex;
+    std::queue<Sms> &m_receivedSms;
+
+    std::mutex &m_receivedCommandsMutex;
+    std::queue<std::string> &m_receivedCommands;
+
+    std::condition_variable &m_cv;
+
+    bool isNewSMS = false;
+    Sms sms;
+    std::chrono::time_point<std::chrono::steady_clock> newSmsTimestamp;
+
+    std::vector<std::string> split(std::string &s, const std::string &delimiter);
+
+};
+
 class ATCommander
 {
 public:
@@ -47,6 +75,8 @@ private:
     std::queue<std::string> receivedCommands;
 
     std::condition_variable cv;
+
+    ATCommanderReader atCommanderReader;
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
     bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
