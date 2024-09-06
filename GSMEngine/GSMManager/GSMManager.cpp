@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-GSMManager::GSMManager(const std::string &port) : atCommander(port, receivedSmses, smsMutex)
+GSMManager::GSMManager(const std::string &port) : atCommander(port)
 {
 }
 
@@ -30,16 +30,12 @@ bool GSMManager::sendSmsSync(const std::string &number, const std::string &messa
 
 bool GSMManager::isNewSms()
 {
-    std::lock_guard<std::mutex> lc(smsMutex);
-    return !receivedSmses.empty();
+    return atCommander.isNewSms();
 }
 
 Sms GSMManager::getSms()
 {
-    std::lock_guard<std::mutex> lc(smsMutex);
-    auto lastSms = receivedSmses.front();
-    receivedSmses.pop();
-    return lastSms;
+    return atCommander.getLastSms();
 }
 
 bool GSMManager::setDefaultConfig()

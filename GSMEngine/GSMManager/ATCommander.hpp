@@ -23,6 +23,9 @@ struct Sms
 
 struct SmsRequest
 {
+    SmsRequest()
+    {
+    }
     SmsRequest(std::string num, std::string msg):
         number(num), message(msg)
     {
@@ -40,42 +43,49 @@ struct ATRequest
 class ATCommander
 {
 public:
-    explicit ATCommander(const std::string &port, std::queue<Sms>& receivedSms, std::mutex& smsMutex);
+    explicit ATCommander(const std::string &port);
 
+    bool setConfig(const std::string& command);
     bool sendSms(const SmsRequest& sms);
     bool sendSmsSync(const SmsRequest& sms);
-    bool setConfig(const std::string& command);
+    bool isNewSms();
+    Sms getLastSms();
     ~ATCommander();
 private:
-    Serial serial;
-    std::queue<Sms>& receivedSmses;
-    std::mutex& smsMutex;
-
-    std::mutex receivedCommandsMutex;
-    std::queue<std::string> receivedCommands;
-
-    std::condition_variable cv;
-
-    std::vector<std::string> split(std::string &s, const std::string &delimiter);
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
     bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
     bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
     bool setConfigATE0();
+    std::vector<std::string> split(std::string &s, const std::string &delimiter);
 
-    std::unique_ptr<std::thread> atThread;
-    void atCommandManager();
-    std::atomic<bool> atCommanManagerIsRunning;
+    Serial serial;
 
-    std::condition_variable atRequestsCv;
-    std::mutex atRequestsMutex;
-    std::queue<ATRequest> atRequestsQueue;
+    // received SMS
+    std::queue<Sms> receivedSmses;
+    std::mutex smsMutex;
 
+    // SMS requests
     std::mutex atSmsRequestMutex;
     std::queue<SmsRequest> atSmsRequestQueue;
 
-    bool isNewSMS = false;
-    std::chrono::time_point<std::chrono::steady_clock> newSmsTimestamp;
+    // TODO callling
+
+    // --------------------------------------------
+
+    // received AT command
+    std::queue<std::string> receivedCommands;
+    std::mutex receivedCommandsMutex;
+    std::condition_variable cvATReceiver;
+
+    // requests AT command
+    std::mutex atRequestsMutex;
+    std::queue<ATRequest> atRequestsQueue;
+
+    // AT command thread
+    std::unique_ptr<std::thread> atThread;
+    void atCommandManager();
+    std::atomic<bool> atCommanManagerIsRunning;
 };
 
 #endif // ATCOMMANDER_HPP

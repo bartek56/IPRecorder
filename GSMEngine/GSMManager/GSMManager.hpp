@@ -18,8 +18,6 @@ public:
     Sms getSms();
 private:
     ATCommander atCommander;
-    std::mutex smsMutex;
-    std::queue<Sms> receivedSmses;
     bool setDefaultConfig();
 };
 
