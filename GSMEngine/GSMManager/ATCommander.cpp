@@ -30,19 +30,23 @@ bool ATCommander::setConfig(const std::string &command)
     ATRequest request = ATRequest();
     request.request = command + EOL;
     request.responsexpected.push_back("OK");
+
+    std::unique_lock lk(atRequestsMutex);
+    atRequestsQueue.push(request);
+
+    cvSmsRequests.wait_for(lk, std::chrono::milliseconds(k_waitForMessageTimeout),
+                           [this]() { return atRequestsQueue.empty(); });
+    if(!atRequestsQueue.empty())
     {
-        std::lock_guard lock(atRequestsMutex);
-        atRequestsQueue.push(request);
+        SPDLOG_ERROR("wait for setConfig timeout!");
+        return false;
     }
-
-    // TODO wait for response
-
     return true;
 }
 
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
-    SPDLOG_DEBUG("add SMS to queue");
+    SPDLOG_DEBUG("add SMS to queue: Text: \"{}\" number: {}", sms.message, sms.number);
     std::lock_guard lock(atSmsRequestMutex);
     atSmsRequestQueue.push(sms);
     return true;
@@ -51,7 +55,7 @@ bool ATCommander::sendSms(const SmsRequest &sms)
 bool ATCommander::sendSmsSync(const SmsRequest &sms)
 {
     /// TODO
-    SPDLOG_DEBUG("add SMS to queue");
+    SPDLOG_DEBUG("add SMS to queue: Text: \"{}\" number: {}", sms.message, sms.number);
     std::lock_guard lock(atSmsRequestMutex);
     atSmsRequestQueue.push(sms);
     return true;
@@ -136,7 +140,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
 
 bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &msg)
 {
-    SPDLOG_DEBUG("GetMessageWithTimeout {}ms", miliSec);
+    SPDLOG_TRACE("GetMessageWithTimeout {}ms", miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.empty())
     {
@@ -146,10 +150,10 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
             SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
             return false;
         }
-        SPDLOG_DEBUG("Message was arrived");
+        SPDLOG_TRACE("Message was arrived");
     }
     msg = receivedCommands.front();
-    SPDLOG_DEBUG("Take message from the queue:\"{}\"", msg);
+    SPDLOG_TRACE("Take message from the queue:\"{}\"", msg);
     receivedCommands.pop();
 
     return true;
@@ -169,7 +173,7 @@ void ATCommander::atCommandManager()
                 SPDLOG_ERROR("Failed to get message");
                 continue;
             }
-            SPDLOG_DEBUG("new AT message: {}", msg);
+            SPDLOG_DEBUG("AT response/msg from receivedCommands: {}", msg);
 
             if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
             {
@@ -200,6 +204,7 @@ void ATCommander::atCommandManager()
                     std::lock_guard<std::mutex> lc(smsMutex);
                     receivedSmses.push(std::move(sms));
                 }
+                continue;
             }
 
             if(msg.find(RING) != std::string::npos)
@@ -225,32 +230,38 @@ void ATCommander::atCommandManager()
                 SPDLOG_ERROR("ERROR !!!");
                 continue;
             }
+
+            SPDLOG_WARN("Message \"{}\" was skipped !", msg);
         }
 
         // Request config to GSM
-        while(atRequestsQueue.size() > 0)
+        if(atRequestsQueue.size() > 0)
         {
-            ATRequest lastTask;
+            while(atRequestsQueue.size() > 0)
             {
-                std::lock_guard lock(atRequestsMutex);
-                lastTask = atRequestsQueue.front();
-                atRequestsQueue.pop();
-            }
-            SPDLOG_DEBUG("new task: {}", lastTask.request);
-            serial.sendMessage(lastTask.request);
-            auto expectedResponses = lastTask.responsexpected;
-            for(const auto &expect : expectedResponses)
-            {
-                if(!waitForConfirm(expect))
+                ATRequest lastTask;
                 {
-                    SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
-                    SPDLOG_ERROR("Failed to set config {}", lastTask.request);
+                    std::lock_guard lock(atRequestsMutex);
+                    lastTask = atRequestsQueue.front();
+                    atRequestsQueue.pop();
+                }
+                SPDLOG_DEBUG("AT request: {}", lastTask.request);
+                serial.sendMessage(lastTask.request);
+                auto expectedResponses = lastTask.responsexpected;
+                for(const auto &expect : expectedResponses)
+                {
+                    if(!waitForConfirm(expect))
+                    {
+                        SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
+                        SPDLOG_ERROR("Failed to set config {}", lastTask.request);
+                    }
                 }
             }
+            cvSmsRequests.notify_one();
         }
 
         // Request SMS to GSM
-        if(atSmsRequestQueue.size() > 0)
+        if(atSmsRequestQueue.size() > 0 && receivedCommands.empty())
         {
             SmsRequest sms;
             {
@@ -266,10 +277,14 @@ void ATCommander::atCommandManager()
             if(!waitForMessage(">"))
             {
                 SPDLOG_ERROR("Error");
+                continue;
             }
             serial.sendMessage(sms.message);
             serial.sendChar(SUB);
 
+
+            /// TODO
+            /*
             if(!waitForMessage(SMS_REQUEST))
             {
                 SPDLOG_ERROR("Error");
@@ -279,6 +294,7 @@ void ATCommander::atCommandManager()
             {
                 SPDLOG_ERROR("Error");
             }
+            */
 
             SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
         }

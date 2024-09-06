@@ -68,6 +68,7 @@ private:
     // SMS requests
     std::mutex atSmsRequestMutex;
     std::queue<SmsRequest> atSmsRequestQueue;
+    std::condition_variable cvSmsRequests;
 
     // TODO callling
 
