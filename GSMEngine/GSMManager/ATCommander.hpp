@@ -59,6 +59,12 @@ private:
 
 };
 
+struct ATRequest
+{
+    std::string request;
+    std::vector<std::string> responsexpected;
+};
+
 class ATCommander
 {
 public:
@@ -66,6 +72,7 @@ public:
 
     bool sendSms(const SmsRequest& sms);
     bool setConfig(const std::string& command);
+    ~ATCommander();
 private:
     Serial serial;
     std::queue<Sms>& receivedSmses;
@@ -83,6 +90,18 @@ private:
     bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
     bool setConfigATE0();
     void clearQueue();
+
+
+    std::unique_ptr<std::thread> atThread;
+    void atCommandManager();
+    std::atomic<bool> atCommanManagerIsRunning;
+
+    std::condition_variable atRequestsCv;
+    std::mutex atRequestsMutex;
+    std::queue<ATRequest> atRequestsQueue;
+
+    std::mutex atSmsRequestMutex;
+    std::queue<SmsRequest> atSmsRequestQueue;
 };
 
 #endif // ATCOMMANDER_HPP

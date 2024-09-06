@@ -97,21 +97,85 @@ ATCommander::ATCommander(const std::string &port, std::queue<Sms> &receivedSms, 
     /// TODO HeartBeatMonitor - sending AT command to GSM module for checking state of module
     serial.setReadEvent(atCommanderReader);
 
-    if(!setConfigATE0())
+    //if(!setConfigATE0())
+    //{
+    //    SPDLOG_ERROR("failed to set ATE0");
+    //}
+    atCommanManagerIsRunning.store(true);
+    atThread = std::make_unique<std::thread>([this]() { this->atCommandManager(); });
+}
+
+void ATCommander::atCommandManager()
+{
+    while(atCommanManagerIsRunning.load())
     {
-        SPDLOG_ERROR("failed to set ATE0");
+        {
+            std::lock_guard lock(atRequestsMutex);
+            while(atRequestsQueue.size() > 0)
+            {
+                auto lastTask = atRequestsQueue.front();
+                SPDLOG_DEBUG("new task: {}", lastTask.request);
+                serial.sendMessage(lastTask.request);
+                auto expectedResponses = lastTask.responsexpected;
+                for(const auto &expect : expectedResponses)
+                {
+                    if(!waitForConfirm(expect))
+                    {
+                        SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
+                        SPDLOG_ERROR("Failed to set config {}", lastTask.request);
+                    }
+                }
+                atRequestsQueue.pop();
+            }
+        }
+        {
+            std::lock_guard lock(atSmsRequestMutex);
+            if(atSmsRequestQueue.size() > 0)
+            {
+                auto sms = atSmsRequestQueue.front();
+                SPDLOG_DEBUG("Sending SMS: \"{}\" to {}", sms.message, sms.number);
+                const std::string sign = "=\"";
+                std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
+
+                serial.sendMessage(command + EOL);
+                if(!waitForMessage(">"))
+                {
+                    SPDLOG_ERROR("Error");
+                }
+                serial.sendMessage(sms.message);
+                serial.sendChar(SUB);
+
+                if(!waitForMessage(SMS_REQUEST))
+                {
+                    SPDLOG_ERROR("Error");
+                }
+
+                if(!waitForConfirm("OK"))
+                {
+                    SPDLOG_ERROR("Error");
+                }
+
+                SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
+                atSmsRequestQueue.pop();
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+    SPDLOG_DEBUG("AT comander thread closed");
 }
 
 bool ATCommander::setConfig(const std::string &command)
 {
-    SPDLOG_DEBUG("set config message: {}", command);
-    serial.sendMessage(command + EOL);
-    if(!waitForConfirm("OK"))
+    SPDLOG_DEBUG("setConfig");
+    ATRequest request = ATRequest();
+    request.request = command + EOL;
+    request.responsexpected.push_back("OK");
     {
-        SPDLOG_ERROR("Failed to set config {}", command);
-        return false;
+        std::lock_guard lock(atRequestsMutex);
+        atRequestsQueue.push(request);
     }
+
+    // TODO wait for response
 
     return true;
 }
@@ -153,33 +217,9 @@ bool ATCommander::setConfigATE0()
 
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
-    SPDLOG_DEBUG("sending message: \"{}\" to {}", sms.message, sms.number);
-    clearQueue();
-    const std::string sign = "=\"";
-    std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
-
-    serial.sendMessage(command + EOL);
-    if(!waitForMessage(">"))
-    {
-        SPDLOG_ERROR("Error");
-        return false;
-    }
-    serial.sendMessage(sms.message);
-    serial.sendChar(SUB);
-
-    if(!waitForMessage(SMS_REQUEST))
-    {
-        SPDLOG_ERROR("Error");
-        return false;
-    }
-
-    if(!waitForConfirm("OK"))
-    {
-        SPDLOG_ERROR("Error");
-        return false;
-    }
-
-    SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
+    SPDLOG_DEBUG("add SMS to queue");
+    std::lock_guard lock(atSmsRequestMutex);
+    atSmsRequestQueue.push(sms);
     return true;
 }
 
@@ -244,4 +284,9 @@ void ATCommander::clearQueue()
             receivedCommands.pop();
         }
     }
+}
+
+ATCommander::~ATCommander()
+{
+    atCommanManagerIsRunning.store(false);
 }

@@ -5,13 +5,14 @@
 #include <iostream>
 
 GSMManager::GSMManager(const std::string &port)
-    : atCommander(port, receivedSmses, smsMutex), tasks(
-                                                          [&](const SmsRequest &sms)
-                                                          {
-                                                              SPDLOG_TRACE("task is calling!!. number:{}, message:{} ", sms.number, sms.message);
-                                                              atCommander.sendSms(sms);
-                                                              return true;
-                                                          })
+    : atCommander(port, receivedSmses, smsMutex),
+      tasks(
+              [&](const SmsRequest &sms)
+              {
+                  SPDLOG_TRACE("task is calling!!. number:{}, message:{} ", sms.number, sms.message);
+                  atCommander.sendSms(sms);
+                  return true;
+              })
 {
 }
 

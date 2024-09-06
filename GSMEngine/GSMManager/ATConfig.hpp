@@ -5,7 +5,7 @@
 #include <string>
 
 #if SIMULATOR == 1
-static const std::vector<std::string> k_defaultConfig{"AT"};
+static const std::vector<std::string> k_defaultConfig{"AT", "AT1", "AT2"};
 static constexpr uint32_t k_waitForMessageTimeout = 15000;
 static constexpr uint32_t k_waitForConfirmTimeout = 10000;
 #endif
