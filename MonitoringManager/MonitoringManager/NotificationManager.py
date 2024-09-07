@@ -130,20 +130,25 @@ class NotificationManager():
             return
         sms = self.gsmManager.getSms()
         contact = self.checkSender(sms.number)
+        Logger.INFO("New SMS:", sms.number, sms.msg)
         if contact is None:
             self.sendSMSAdmin("unknown number send sms to me")
             return
         data_str = sms.msg
 
         if ('STATUS' in data_str):
+            Logger.INFO("Sending status to", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number, self.checkStatus())
         elif ('ALARMOFF' in data_str):
+            Logger.INFO("Sending Wyloczono alarm to", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number, "Wylaczono ALARM")
             self.removeUserFromActive(contact.name, contact.surname)
         elif ('ALARMON' in data_str):
+            Logger.INFO("Sending Wlaczono alarm to", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number, "Wlaczono ALARM")
             self.addUserAsActive(contact.name, contact.surname)
         else:
+            Logger.INFO("Sending nie wiem o co chodzi do", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number,
                          "Nie wiem, czego ode mnie zadasz")
 
