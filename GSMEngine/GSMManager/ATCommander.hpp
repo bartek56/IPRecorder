@@ -60,6 +60,7 @@ private:
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
 
     Serial serial;
+    bool isNewMsgFromAt;
 
     // received SMS
     std::queue<Sms> receivedSmses;
