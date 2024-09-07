@@ -149,6 +149,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
         return false;
     }
 
+    lastRefresh = std::chrono::steady_clock::now();
     auto result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
                                [&msg](std::string m) { return m.find(msg) != std::string::npos; });
 
@@ -175,6 +176,8 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
             return false;
         }
         isNewMsgFromAt = false;
+        // refresh heart beat
+        lastRefresh = std::chrono::steady_clock::now();
         SPDLOG_TRACE("new messages was arrived");
 
         auto result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
@@ -210,6 +213,7 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
         isNewMsgFromAt = false;
         SPDLOG_TRACE("Message was arrived");
     }
+    lastRefresh = std::chrono::steady_clock::now();
     msg = receivedCommands.front();
     SPDLOG_TRACE("Take message from the queue:\"{}\"", msg);
     receivedCommands.erase(receivedCommands.begin());
@@ -219,6 +223,7 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
 
 void ATCommander::atCommandManager()
 {
+    lastRefresh = std::chrono::steady_clock::now();
     while(atCommanManagerIsRunning.load())
     {
         // Requests, status etc from GSM
@@ -353,7 +358,20 @@ void ATCommander::atCommandManager()
 
             SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
         }
-        /// TODO HeartBeatMonitor - sending AT command to GSM module for checking state of module
+
+        if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) >
+           10)
+        {
+            SPDLOG_TRACE("TIMEOUT");
+
+            if(!setConfigATE0())
+            {
+                SPDLOG_ERROR("Critical issue !!!");
+                std::exit(0);
+            }
+
+            lastRefresh = std::chrono::steady_clock::now();
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     SPDLOG_DEBUG("AT comander thread closed");

@@ -88,6 +88,8 @@ private:
     std::unique_ptr<std::thread> atThread;
     void atCommandManager();
     std::atomic<bool> atCommanManagerIsRunning;
+
+    std::chrono::steady_clock::time_point lastRefresh;
 };
 
 #endif // ATCOMMANDER_HPP
