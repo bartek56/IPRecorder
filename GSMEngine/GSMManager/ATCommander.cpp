@@ -83,7 +83,7 @@ bool ATCommander::setConfigATE0()
     const std::string ATE0 = "ATE0";
     serial.sendMessage(ATE0 + EOL);
     std::string lastMessage;
-
+    /// TODO get theNewestMessage, not last. Create dedicated function for it
     if(!getMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
         return false;
 
