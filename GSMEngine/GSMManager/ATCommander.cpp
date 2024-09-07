@@ -7,13 +7,14 @@
 
 ATCommander::ATCommander(const std::string &port) : serial(port), isNewMsgFromAt(false)
 {
+    receivedCommands.reserve(20);
     serial.setReadEvent(
             [&](const std::string &msg)
             {
                 SPDLOG_DEBUG("new AT message: {}", msg);
                 std::lock_guard<std::mutex> lk(receivedCommandsMutex);
                 isNewMsgFromAt = true;
-                receivedCommands.push(msg);
+                receivedCommands.push_back(msg);
                 cvATReceiver.notify_one();
             });
 
@@ -124,7 +125,7 @@ bool ATCommander::waitForConfirm(const std::string &msg)
 
 bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &miliSec)
 {
-    SPDLOG_DEBUG("GetMessageWithTimeout {}ms", miliSec);
+    SPDLOG_DEBUG("GetMessageWithTimeout: msg: {}, timeout: {}ms", msg, miliSec);
 
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     auto startPt = std::chrono::steady_clock::now();
@@ -132,7 +133,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
     if(receivedCommands.empty())
     {
         isNewMsgFromAt = false;
-        SPDLOG_DEBUG("wait for AT message: \"{}\"", msg);
+        SPDLOG_TRACE("wait for AT message: \"{}\"", msg);
         cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
         {
@@ -140,20 +141,21 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
             return false;
         }
         isNewMsgFromAt = false;
-        SPDLOG_DEBUG("Message was arrived");
+        SPDLOG_TRACE("Messages was arrived");
     }
     if(receivedCommands.empty())
     {
-        SPDLOG_ERROR("timeot was broken, but there is not message !!!");
+        SPDLOG_ERROR("timeout was broken, but there is not message !!!");
         return false;
     }
-    auto latestMsg = receivedCommands.front();
 
-    SPDLOG_DEBUG("Take message from the queue:\"{}\"", latestMsg);
-    if(latestMsg.find(msg) != std::string::npos)
+    auto result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
+                               [&msg](std::string m) { return m.find(msg) != std::string::npos; });
+
+    if(result != receivedCommands.end())
     {
-        SPDLOG_DEBUG("Message was found");
-        receivedCommands.pop();
+        SPDLOG_TRACE("Message was found");
+        receivedCommands.erase(result);
         return true;
     }
     else
@@ -165,7 +167,7 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
     auto endPt = std::chrono::steady_clock::now();
     while(std::chrono::duration_cast<std::chrono::milliseconds>(endPt - startPt).count() < miliSec)
     {
-        SPDLOG_DEBUG("cycle: wait for AT message: \"{}\"", msg);
+        SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
         cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
         {
@@ -173,17 +175,18 @@ bool ATCommander::waitForMessageTimeout(const std::string &msg, const uint32_t &
             return false;
         }
         isNewMsgFromAt = false;
-        SPDLOG_DEBUG("new message was arrived");
-        // TODO sometimes two massages come, so here should be checking more then just one message
-        auto latestMsg = receivedCommands.back();
+        SPDLOG_TRACE("new messages was arrived");
 
-        SPDLOG_DEBUG("Take message from the queue:\"{}\"", latestMsg);
-        if(latestMsg.find(msg) != std::string::npos)
+        auto result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
+                                   [&msg](std::string m) { return m.find(msg) != std::string::npos; });
+
+        if(result != receivedCommands.end())
         {
-            SPDLOG_DEBUG("Message was found");
-            receivedCommands.pop();
+            SPDLOG_TRACE("Message was found");
+            receivedCommands.erase(result);
             return true;
         }
+
         endPt = std::chrono::steady_clock::now();
     }
 
@@ -209,7 +212,7 @@ bool ATCommander::getMessageWithTimeout(const uint32_t &miliSec, std::string &ms
     }
     msg = receivedCommands.front();
     SPDLOG_TRACE("Take message from the queue:\"{}\"", msg);
-    receivedCommands.pop();
+    receivedCommands.erase(receivedCommands.begin());
 
     return true;
 }

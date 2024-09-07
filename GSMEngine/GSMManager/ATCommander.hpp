@@ -76,7 +76,7 @@ private:
     // --------------------------------------------
 
     // received AT command
-    std::queue<std::string> receivedCommands;
+    std::vector<std::string> receivedCommands;
     std::mutex receivedCommandsMutex;
     std::condition_variable cvATReceiver;
 
