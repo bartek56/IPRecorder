@@ -55,8 +55,11 @@ private:
     bool waitForMessage(const std::string& msg);
     bool waitForConfirm(const std::string& msg);
     bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
-    bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
+    bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
+    std::string getOldestMessage();
+    std::vector<std::string>::iterator lookingForMessageWithTimeout(const uint32_t &miliSec, const std::string &msg);
     bool setConfigATE0();
+    bool sendSync();
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
 
     Serial serial;
