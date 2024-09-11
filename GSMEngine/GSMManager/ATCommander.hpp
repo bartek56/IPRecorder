@@ -3,86 +3,20 @@
 
 #include <string>
 #include <queue>
-#include "Serial.hpp"
+#include "ATCommanderScheduler.hpp"
 
-struct Sms
-{
-    Sms(const std::string& number, const std::string& msg) : number(number), dateAndTime(""), msg(msg)
-    {
-        if(number.find("+48") == std::string::npos)
-            throw std::runtime_error("number doesn't contain polish national prefix");
-    }
-    Sms() : number(""), dateAndTime(""),msg("")
-    {
-    }
 
-    std::string number;
-    std::string dateAndTime;
-    std::string msg;
-};
 
-struct SmsRequest
-{
-    SmsRequest(std::string num, std::string msg):
-        number(num), message(msg)
-    {
-    }
-    std::string number;
-    std::string message;
-};
-
-class ATCommanderReader
+class ATCommander : public ATCommanderScheduler
 {
 public:
-    ATCommanderReader(std::mutex &smsMux, std::queue<Sms> &receivedSmsQueue, std::mutex &receivedCommandsMutex,
-                      std::queue<std::string> &receivedCommands, std::condition_variable &cv)
-        : m_smsMutex(smsMux), m_receivedSms(receivedSmsQueue), m_receivedCommandsMutex(receivedCommandsMutex),
-          m_receivedCommands(receivedCommands), m_cv(cv)
-    {
-    }
-    void operator()(const std::string &msg);
+    explicit ATCommander(const std::string &port);
 
-private:
-    std::mutex &m_smsMutex;
-    std::queue<Sms> &m_receivedSms;
-
-    std::mutex &m_receivedCommandsMutex;
-    std::queue<std::string> &m_receivedCommands;
-
-    std::condition_variable &m_cv;
-
-    bool isNewSMS = false;
-    Sms sms;
-    std::chrono::time_point<std::chrono::steady_clock> newSmsTimestamp;
-
-    std::vector<std::string> split(std::string &s, const std::string &delimiter);
-
-};
-
-class ATCommander
-{
-public:
-    explicit ATCommander(const std::string &port, std::queue<Sms>& receivedSms, std::mutex& smsMutex);
-
-    bool sendSms(const SmsRequest& sms);
     bool setConfig(const std::string& command);
-private:
-    Serial serial;
-    std::queue<Sms>& receivedSmses;
-    std::mutex& smsMutex;
-
-    std::mutex receivedCommandsMutex;
-    std::queue<std::string> receivedCommands;
-
-    std::condition_variable cv;
-
-    ATCommanderReader atCommanderReader;
-    bool waitForMessage(const std::string& msg);
-    bool waitForConfirm(const std::string& msg);
-    bool waitForMessageTimeout(const std::string& msg, const uint32_t& sec);
-    bool getMessageWithTimeout(const uint32_t &miliSec, std::string& msg);
-    bool setConfigATE0();
-    void clearQueue();
+    bool sendSms(const SmsRequest& sms);
+    bool sendSmsSync(const SmsRequest& sms);
+    bool isNewSms();
+    Sms getLastSms();
 };
 
 #endif // ATCOMMANDER_HPP
