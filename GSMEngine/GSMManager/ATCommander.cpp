@@ -19,8 +19,8 @@ bool ATCommander::setConfig(const std::string &command)
     std::unique_lock lk(atRequestsMutex);
     atRequestsQueue.push(request);
 
-    cvSmsRequests.wait_for(lk, std::chrono::milliseconds(k_waitForMessageTimeout),
-                           [this]() { return atRequestsQueue.empty(); });
+    atRequestCv.wait_for(lk, std::chrono::milliseconds(k_waitForMessageTimeout),
+                         [this]() { return atRequestsQueue.empty(); });
     if(!atRequestsQueue.empty())
     {
         SPDLOG_ERROR("wait for setConfig timeout!");
@@ -39,10 +39,16 @@ bool ATCommander::sendSms(const SmsRequest &sms)
 
 bool ATCommander::sendSmsSync(const SmsRequest &sms)
 {
-    /// TODO
-    SPDLOG_DEBUG("add SMS to queue: Text: \"{}\" number: {}", sms.message, sms.number);
-    std::lock_guard lock(atSmsRequestMutex);
+    SPDLOG_DEBUG("sending SMS: Text: \"{}\" number: {}", sms.message, sms.number);
+    std::unique_lock lk(atSmsRequestMutex);
     atSmsRequestQueue.push(sms);
+    atSmsRequestCv.wait_for(lk, std::chrono::milliseconds(k_waitForMessageTimeout),
+                            [this]() { return atSmsRequestQueue.empty(); });
+    if(!atSmsRequestQueue.empty())
+    {
+        SPDLOG_ERROR("wait for sending SMS timeout!");
+        return false;
+    }
     return true;
 }
 

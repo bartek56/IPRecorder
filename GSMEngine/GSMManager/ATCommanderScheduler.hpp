@@ -48,12 +48,13 @@ public:
 protected:
     // requests AT command
     std::mutex atRequestsMutex;
-    std::queue<ATRequest> atRequestsQueue;
+    std::queue<ATRequest> atRequestsQueue;    
+    std::condition_variable atRequestCv;
 
     // SMS requests
     std::mutex atSmsRequestMutex;
     std::queue<SmsRequest> atSmsRequestQueue;
-    std::condition_variable cvSmsRequests;
+    std::condition_variable atSmsRequestCv;
 
     // received SMS
     std::queue<Sms> receivedSmses;
@@ -67,6 +68,7 @@ private:
     bool waitForMessage(const std::string &msg);
     bool waitForConfirm(const std::string &msg);
     bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);
+    void heartBeatRefresh();
 
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
 

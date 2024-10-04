@@ -90,7 +90,7 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
         }
         isNewMsgFromAt = false;
         // refresh heart beat
-        lastRefresh = std::chrono::steady_clock::now();
+        heartBeatRefresh();
         SPDLOG_TRACE("new message was arrived");
 
         if(!receivedCommands.empty())
@@ -155,8 +155,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
             return false;
         }
         isNewMsgFromAt = false;
-        // refresh heart beat
-        lastRefresh = std::chrono::steady_clock::now();
+        heartBeatRefresh();
         SPDLOG_TRACE("new message was arrived");
 
         result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
@@ -177,6 +176,11 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
     }
     SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
     return false;
+}
+
+void ATCommanderScheduler::heartBeatRefresh()
+{
+    lastRefresh = std::chrono::steady_clock::now();
 }
 
 std::vector<std::string> ATCommanderScheduler::split(std::string &s, const std::string &delimiter)
@@ -201,7 +205,7 @@ void ATCommanderScheduler::atCommandManager()
         SPDLOG_ERROR("failed to set ATE0");
         std::exit(0);
     }
-    lastRefresh = std::chrono::steady_clock::now();
+    heartBeatRefresh();
     while(atCommandManagerIsRunning.load())
     {
         // Requests, status etc from GSM
@@ -294,7 +298,7 @@ void ATCommanderScheduler::atCommandManager()
                     }
                 }
             }
-            cvSmsRequests.notify_one();
+            atRequestCv.notify_one();
         }
 
         // Request SMS to GSM
@@ -331,8 +335,10 @@ void ATCommanderScheduler::atCommandManager()
             }
 
             SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
+            atSmsRequestCv.notify_one();
         }
 
+        // Heart beat
         if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) >
            10)
         {
