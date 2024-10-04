@@ -62,13 +62,12 @@ private:
     bool setConfigATE0();
     bool sendSync();
 
-    bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
+    bool getLastMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     std::string getOldestMessage();
     bool waitForMessage(const std::string &msg);
     bool waitForConfirm(const std::string &msg);
     bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);
 
-    std::vector<std::string>::iterator lookingForMessageWithTimeout(const uint32_t &miliSec, const std::string &msg);
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
 
     // TODO callling
