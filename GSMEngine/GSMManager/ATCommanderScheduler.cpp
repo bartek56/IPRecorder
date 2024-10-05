@@ -127,6 +127,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
         return true;
     }
     SPDLOG_TRACE("wait for new AT message");
+    isNewMsgFromAt = false;
     cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
@@ -146,7 +147,6 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     return false;
 }
 
-
 bool ATCommanderScheduler::waitForMessage(const std::string &msg)
 {
     return waitForMessageTimeout(msg, k_waitForMessageTimeout);
@@ -161,7 +161,6 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
 {
     SPDLOG_TRACE("waitForMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
-
     auto result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
                                [&msg](std::string m) { return m.find(msg) != std::string::npos; });
 
@@ -171,13 +170,14 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
         receivedCommands.erase(result);
         return true;
     }
-    SPDLOG_TRACE("Expected message was not found: {}, loop is starting", msg);
 
+    SPDLOG_TRACE("Expected message was not found: {}, loop is starting", msg);
     auto startPt = std::chrono::steady_clock::now();
     auto endPt = startPt;
     while(std::chrono::duration_cast<std::chrono::milliseconds>(endPt - startPt).count() < miliSec)
     {
         SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
+
         cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
         {
@@ -204,6 +204,50 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
 
         endPt = std::chrono::steady_clock::now();
     }
+    SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
+    return false;
+}
+
+bool ATCommanderScheduler::waitForLastMessageTimeout(const std::string &msg, const uint32_t &miliSec)
+{
+    SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
+    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
+    if(receivedCommands.size() > 0)
+    {
+        auto lastMsg = std::prev(receivedCommands.end());
+        if(lastMsg->find(msg) != std::string::npos)
+        {
+            SPDLOG_TRACE("Message {} was found", msg);
+            receivedCommands.erase(lastMsg);
+            return true;
+        }
+    }
+
+    auto numberOfMsg = receivedCommands.size();
+
+    SPDLOG_TRACE("Expected message was not found: {}, wait for next message", msg);
+
+    isNewMsgFromAt = false;
+    cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    if(!isNewMsgFromAt)
+    {
+        SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
+        return false;
+    }
+    isNewMsgFromAt = false;
+    heartBeatRefresh();
+    SPDLOG_TRACE("new message was arrived");
+
+    auto result = std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
+                               [&msg](std::string m) { return m.find(msg) != std::string::npos; });
+
+    if(result != receivedCommands.end())
+    {
+        SPDLOG_TRACE("Message {} was found", msg);
+        receivedCommands.erase(result);
+        return true;
+    }
+
     SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
     return false;
 }
@@ -334,8 +378,6 @@ void ATCommanderScheduler::configProcessing()
     auto expectedResponses = lastTask.responsexpected;
     for(const auto &expect : expectedResponses)
     {
-        /// TODO it should be safe when new meesage was came on this loop.
-        /// Right now message received queue has to be empty
         if(!waitForConfirm(expect))
         {
             SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
@@ -397,7 +439,7 @@ void ATCommanderScheduler::heartBeatTick()
             std::exit(0);
         }
 
-        lastRefresh = std::chrono::steady_clock::now();
+        heartBeatRefresh();
     }
 }
 

@@ -70,6 +70,7 @@ private:
     bool waitForMessage(const std::string &msg);
     bool waitForConfirm(const std::string &msg);
     bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);
+    bool waitForLastMessageTimeout(const std::string &msg, const uint32_t &sec);
 
     // TODO move it to utils
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
