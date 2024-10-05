@@ -2,9 +2,6 @@
 #include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
-#include <algorithm>
-
-
 ATCommander::ATCommander(const std::string &port) : ATCommanderScheduler(port)
 {
 }

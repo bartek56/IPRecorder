@@ -2,6 +2,7 @@
 #define ATCOMMANDERSCHEDULER_HPP
 
 #include "Serial.hpp"
+#include <stdexcept>
 #include <queue>
 
 struct ATRequest
@@ -68,11 +69,11 @@ private:
     bool waitForMessage(const std::string &msg);
     bool waitForConfirm(const std::string &msg);
     bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);
-    void heartBeatRefresh();
 
+    // TODO move it to utils
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
 
-    // TODO callling
+    // TODO send SMS info when somebody was called
 
     // --------------------------------------------
     Serial serial;
@@ -87,8 +88,15 @@ private:
     std::unique_ptr<std::thread> atThread;
     void atCommandManager();
     std::atomic<bool> atCommandManagerIsRunning;
+    void smsProcessing(std::string msg);
+    void callingProcessing(std::string msg);
+    void configProcessing();
+    void smsRequestProcessing();
 
+    // Heart beat
     std::chrono::steady_clock::time_point lastRefresh;
+    void heartBeatRefresh();
+    void heartBeatTick();
 };
 
 #endif// ATCOMMANDERSCHEDULER_HPP

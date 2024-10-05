@@ -16,7 +16,6 @@ ATCommanderScheduler::ATCommanderScheduler(const std::string &port) : serial(por
                 cvATReceiver.notify_one();
             });
 
-
     atCommandManagerIsRunning.store(true);
     atThread = std::make_unique<std::thread>([this]() { this->atCommandManager(); });
 }
@@ -178,26 +177,6 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
     return false;
 }
 
-void ATCommanderScheduler::heartBeatRefresh()
-{
-    lastRefresh = std::chrono::steady_clock::now();
-}
-
-std::vector<std::string> ATCommanderScheduler::split(std::string &s, const std::string &delimiter)
-{
-    std::vector<std::string> vec;
-    size_t pos = 0;
-    std::string token;
-    while((pos = s.find(delimiter)) != std::string::npos)
-    {
-        token = s.substr(0, pos);
-        vec.push_back(token);
-        s.erase(0, pos + delimiter.length());
-    }
-    vec.push_back(s);
-    return vec;
-}
-
 void ATCommanderScheduler::atCommandManager()
 {
     if(!setConfigATE0())
@@ -216,33 +195,7 @@ void ATCommanderScheduler::atCommandManager()
 
             if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
             {
-                auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
-                auto splitted = split(msgWithoutCRLF, ",,");
-
-                splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
-                splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
-
-                auto number = split(splitted[0], " ")[1];
-                Sms sms;
-                sms.number = number;
-                auto date = splitted[1];
-                sms.dateAndTime = date;
-                SPDLOG_INFO("new SMS info: {} {}", date, number);
-
-                // get next message from the queue (text of SMS)
-                std::string msgSms;
-                bool result = getLastMessageWithTimeout(k_waitForMessageTimeout, msgSms);
-                if(!result)
-                {
-                    SPDLOG_ERROR("Failed to get SMS message");
-                    continue;
-                }
-                SPDLOG_INFO("new SMS text: {}", msgSms);
-                sms.msg = msgSms.substr(0, msgSms.size() - 2);
-                {
-                    std::lock_guard<std::mutex> lc(smsMutex);
-                    receivedSmses.push(std::move(sms));
-                }
+                smsProcessing(msg);
                 continue;
             }
 
@@ -253,15 +206,7 @@ void ATCommanderScheduler::atCommandManager()
             }
             if(msg.find(CALLING) != std::string::npos)
             {
-                SPDLOG_INFO("Calling !!! {}", msg);
-                ATRequest request = ATRequest();
-                request.request = "ATH";
-                request.responsexpected.push_back("NO CARRIER");
-                request.responsexpected.push_back("OK");
-                {
-                    std::lock_guard lock(atRequestsMutex);
-                    atRequestsQueue.push(request);
-                }
+                callingProcessing(msg);
                 continue;
             }
             if(msg.find(ERROR) != std::string::npos)
@@ -278,25 +223,7 @@ void ATCommanderScheduler::atCommandManager()
         {
             while(atRequestsQueue.size() > 0)
             {
-                ATRequest lastTask;
-                {
-                    std::lock_guard lock(atRequestsMutex);
-                    lastTask = atRequestsQueue.front();
-                    atRequestsQueue.pop();
-                }
-                SPDLOG_DEBUG("AT request: {}", lastTask.request);
-                serial.sendMessage(lastTask.request);
-                auto expectedResponses = lastTask.responsexpected;
-                for(const auto &expect : expectedResponses)
-                {
-                    /// TODO it should be safe when new meesage was came on this loop.
-                    /// Right now message received queue has to be empty
-                    if(!waitForConfirm(expect))
-                    {
-                        SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
-                        SPDLOG_ERROR("Failed to set config {}", lastTask.request);
-                    }
-                }
+                configProcessing();
             }
             atRequestCv.notify_one();
         }
@@ -304,57 +231,159 @@ void ATCommanderScheduler::atCommandManager()
         // Request SMS to GSM
         if(atSmsRequestQueue.size() > 0 && receivedCommands.empty())
         {
-            SmsRequest sms;
+            while(atSmsRequestQueue.size() > 0)
             {
-                std::lock_guard lock(atSmsRequestMutex);
-                sms = atSmsRequestQueue.front();
-                atSmsRequestQueue.pop();
+                smsRequestProcessing();
             }
-            SPDLOG_DEBUG("Sending SMS: \"{}\" to {}", sms.message, sms.number);
-            const std::string sign = "=\"";
-            std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
-
-            serial.sendMessage(command);
-            if(!waitForMessage(">"))
-            {
-                SPDLOG_ERROR("Error");
-                continue;
-            }
-            serial.sendMessage(sms.message);
-            serial.sendChar(SUB);
-
-
-            if(!waitForMessage(SMS_REQUEST))
-            {
-                SPDLOG_ERROR("Error");
-            }
-
-            if(!waitForConfirm("OK"))
-            {
-                SPDLOG_ERROR("Error");
-            }
-
-            SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
             atSmsRequestCv.notify_one();
         }
 
-        // Heart beat
-        if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) >
-           10)
-        {
-            SPDLOG_TRACE("TIMEOUT");
+        heartBeatTick();
 
-            if(!sendSync())
-            {
-                SPDLOG_ERROR("Critical issue !!!");
-                std::exit(0);
-            }
-
-            lastRefresh = std::chrono::steady_clock::now();
-        }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     SPDLOG_DEBUG("AT comander thread closed");
+}
+
+void ATCommanderScheduler::smsProcessing(const std::string msg)
+{
+    auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
+    auto splitted = split(msgWithoutCRLF, ",,");
+
+    splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
+    splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
+
+    auto number = split(splitted[0], " ")[1];
+    Sms sms;
+    sms.number = number;
+    auto date = splitted[1];
+    sms.dateAndTime = date;
+    SPDLOG_INFO("new SMS info: {} {}", date, number);
+
+    // get next message from the queue (text of SMS)
+    std::string msgSms;
+
+    // TODO getOldestMsgWithTimeout
+    bool result = getLastMessageWithTimeout(k_waitForMessageTimeout, msgSms);
+    if(!result)
+    {
+        SPDLOG_ERROR("Failed to get SMS message");
+        return;
+    }
+    SPDLOG_INFO("new SMS text: {}", msgSms);
+    sms.msg = msgSms.substr(0, msgSms.size() - 2);
+    {
+        std::lock_guard<std::mutex> lc(smsMutex);
+        receivedSmses.push(std::move(sms));
+    }
+}
+
+void ATCommanderScheduler::callingProcessing(const std::string msg)
+{
+    SPDLOG_INFO("Calling !!! {}", msg);
+    ATRequest request = ATRequest();
+    request.request = "ATH";
+    request.responsexpected.push_back("NO CARRIER");
+    request.responsexpected.push_back("OK");
+    {
+        std::lock_guard lock(atRequestsMutex);
+        atRequestsQueue.push(request);
+    }
+}
+
+void ATCommanderScheduler::configProcessing()
+{
+    ATRequest lastTask;
+    {
+        std::lock_guard lock(atRequestsMutex);
+        lastTask = atRequestsQueue.front();
+        atRequestsQueue.pop();
+    }
+    SPDLOG_DEBUG("AT request: {}", lastTask.request);
+    serial.sendMessage(lastTask.request);
+    auto expectedResponses = lastTask.responsexpected;
+    for(const auto &expect : expectedResponses)
+    {
+        /// TODO it should be safe when new meesage was came on this loop.
+        /// Right now message received queue has to be empty
+        if(!waitForConfirm(expect))
+        {
+            SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
+            SPDLOG_ERROR("Failed to set config {}", lastTask.request);
+        }
+    }
+}
+
+void ATCommanderScheduler::smsRequestProcessing()
+{
+    SmsRequest sms;
+    {
+        std::lock_guard lock(atSmsRequestMutex);
+        sms = atSmsRequestQueue.front();
+        atSmsRequestQueue.pop();
+    }
+    SPDLOG_DEBUG("Sending SMS: \"{}\" to {}", sms.message, sms.number);
+    const std::string sign = "=\"";
+    std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
+
+    serial.sendMessage(command);
+    if(!waitForMessage(">"))
+    {
+        SPDLOG_ERROR("msg:> was not arrived");
+        return;
+    }
+    serial.sendMessage(sms.message);
+    serial.sendChar(SUB);
+
+    if(!waitForMessage(SMS_REQUEST))
+    {
+        SPDLOG_ERROR("msg:{} was not arrived", SMS_REQUEST);
+        return;
+    }
+
+    if(!waitForConfirm("OK"))
+    {
+        SPDLOG_ERROR("msg:OK was not arrived");
+        return;
+    }
+
+    SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
+}
+
+void ATCommanderScheduler::heartBeatRefresh()
+{
+    lastRefresh = std::chrono::steady_clock::now();
+}
+
+void ATCommanderScheduler::heartBeatTick()
+{
+    if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) > 10)
+    {
+        SPDLOG_TRACE("TIMEOUT");
+
+        if(!sendSync())
+        {
+            SPDLOG_ERROR("Critical issue !!!");
+            std::exit(0);
+        }
+
+        lastRefresh = std::chrono::steady_clock::now();
+    }
+}
+
+std::vector<std::string> ATCommanderScheduler::split(std::string &s, const std::string &delimiter)
+{
+    std::vector<std::string> vec;
+    size_t pos = 0;
+    std::string token;
+    while((pos = s.find(delimiter)) != std::string::npos)
+    {
+        token = s.substr(0, pos);
+        vec.push_back(token);
+        s.erase(0, pos + delimiter.length());
+    }
+    vec.push_back(s);
+    return vec;
 }
 
 ATCommanderScheduler::~ATCommanderScheduler()

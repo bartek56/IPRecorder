@@ -1,0 +1,48 @@
+start
+new message AT
+
+new message OK
+
+new message AT+CMGF=1
+
+new message OK
+
+new message AT+CNMI=1,2,0,0
+
+new message OK
+
+new message AT+CLIP=1
+
+new message OK
+
+Initialization success
+sendSMS test message to 791942336
+new message AT+CMGS="+48791942336"
+
+new message >
+new message test message
+new message 
++CMGS: 163
+
+new message OK
+
+message was send
+new message 
++CMT: "+48791942336",,"24/05/10,17:14:51+02"
+
+new message Zapierdala 
+
+new message 
+RING
+
+new message 
++CLIP: "+48791942336",145,,,"",0
+
+new message 
+RING
+
+new message 
++CLIP: "+48791942336",145,,,"",0
+
+new message 
+NO CARRIER
