@@ -66,6 +66,7 @@ private:
 
     bool getLastMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     std::string getOldestMessage();
+    bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     bool waitForMessage(const std::string &msg);
     bool waitForConfirm(const std::string &msg);
     bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);

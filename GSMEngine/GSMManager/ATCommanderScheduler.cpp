@@ -116,6 +116,37 @@ std::string ATCommanderScheduler::getOldestMessage()
     return msg;
 }
 
+bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg)
+{
+    SPDLOG_TRACE("getOldestMessageWithTimeout");
+    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
+    if(receivedCommands.size() > 0)
+    {
+        msg = receivedCommands.front();
+        receivedCommands.erase(receivedCommands.begin());
+        return true;
+    }
+    SPDLOG_TRACE("wait for new AT message");
+    cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    if(!isNewMsgFromAt)
+    {
+        SPDLOG_ERROR("wait for the oldest message timeout: {}ms", miliSec);
+        return false;
+    }
+    isNewMsgFromAt = false;
+    heartBeatRefresh();
+    SPDLOG_TRACE("new message was arrived");
+
+    if(receivedCommands.size() > 0)
+    {
+        msg = receivedCommands.front();
+        receivedCommands.erase(receivedCommands.begin());
+        return true;
+    }
+    return false;
+}
+
+
 bool ATCommanderScheduler::waitForMessage(const std::string &msg)
 {
     return waitForMessageTimeout(msg, k_waitForMessageTimeout);
@@ -263,8 +294,7 @@ void ATCommanderScheduler::smsProcessing(const std::string msg)
     // get next message from the queue (text of SMS)
     std::string msgSms;
 
-    // TODO getOldestMsgWithTimeout
-    bool result = getLastMessageWithTimeout(k_waitForMessageTimeout, msgSms);
+    bool result = getOldestMessageWithTimeout(k_waitForMessageTimeout, msgSms);
     if(!result)
     {
         SPDLOG_ERROR("Failed to get SMS message");
