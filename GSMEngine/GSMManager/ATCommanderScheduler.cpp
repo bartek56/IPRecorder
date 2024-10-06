@@ -281,7 +281,7 @@ void ATCommanderScheduler::atCommandManager()
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    SPDLOG_DEBUG("AT comander thread closed");
+    SPDLOG_DEBUG("AT comnand manager thread closed");
 }
 
 void ATCommanderScheduler::smsProcessing(const std::string msg)
@@ -396,7 +396,7 @@ void ATCommanderScheduler::heartBeatRefresh()
 
 void ATCommanderScheduler::heartBeatTick()
 {
-    if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) > 2)
+    if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) > 10)
     {
         SPDLOG_TRACE("TIMEOUT");
 
@@ -428,4 +428,5 @@ std::vector<std::string> ATCommanderScheduler::split(std::string &s, const std::
 ATCommanderScheduler::~ATCommanderScheduler()
 {
     atCommandManagerIsRunning.store(false);
+    atThread->join();
 }
