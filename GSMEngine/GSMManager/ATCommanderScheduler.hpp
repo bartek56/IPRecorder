@@ -49,7 +49,7 @@ public:
 protected:
     // requests AT command
     std::mutex atRequestsMutex;
-    std::queue<ATRequest> atRequestsQueue;    
+    std::queue<ATRequest> atRequestsQueue;
     std::condition_variable atRequestCv;
 
     // SMS requests
@@ -60,6 +60,7 @@ protected:
     // received SMS
     std::queue<Sms> receivedSmses;
     std::mutex smsMutex;
+
 private:
     bool setConfigATE0();
     bool sendSync();
@@ -69,8 +70,8 @@ private:
     bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     bool waitForMessage(const std::string &msg);
     bool waitForConfirm(const std::string &msg);
+    // TODO add timestamps to every message from AT, and verify that next received message was came after send request
     bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);
-    bool waitForLastMessageTimeout(const std::string &msg, const uint32_t &sec);
 
     // TODO move it to utils
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
@@ -79,7 +80,7 @@ private:
 
     // --------------------------------------------
     Serial serial;
-    bool isNewMsgFromAt=false;
+    bool isNewMsgFromAt = false;
 
     // received AT command
     std::vector<std::string> receivedCommands;

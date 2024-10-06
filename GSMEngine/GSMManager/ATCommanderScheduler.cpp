@@ -76,31 +76,24 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
     }
     SPDLOG_TRACE("Message queue is empty, waiting for new meesage");
 
-    auto startPt = std::chrono::steady_clock::now();
-    auto endPt = startPt;
-    while(std::chrono::duration_cast<std::chrono::milliseconds>(endPt - startPt).count() < miliSec)
+    isNewMsgFromAt = false;
+    cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    if(!isNewMsgFromAt)
     {
-        SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
-        cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
-        if(!isNewMsgFromAt)
-        {
-            SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
-            return false;
-        }
-        isNewMsgFromAt = false;
-        // refresh heart beat
-        heartBeatRefresh();
-        SPDLOG_TRACE("new message was arrived");
+        SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
+        return false;
+    }
+    isNewMsgFromAt = false;
+    // refresh heart beat
+    heartBeatRefresh();
+    SPDLOG_TRACE("new message was arrived");
 
-        if(!receivedCommands.empty())
-        {
-            SPDLOG_TRACE("Get last message");
-            msg = receivedCommands.back();
-            receivedCommands.pop_back();
-            return true;
-        }
-
-        endPt = std::chrono::steady_clock::now();
+    if(!receivedCommands.empty())
+    {
+        msg = receivedCommands.back();
+        SPDLOG_TRACE("Last message:{}", msg);
+        receivedCommands.pop_back();
+        return true;
     }
 
     SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
@@ -159,15 +152,16 @@ bool ATCommanderScheduler::waitForConfirm(const std::string &msg)
 
 bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const uint32_t &miliSec)
 {
-    SPDLOG_TRACE("waitForMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
+    SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
-    auto result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
-                               [&msg](std::string m) { return m.find(msg) != std::string::npos; });
 
-    if(result != receivedCommands.end())
+    auto result1 = std::find_if(receivedCommands.rbegin(), receivedCommands.rend(),
+                                [&msg](std::string m) { return m.find(msg) != std::string::npos; });
+
+    if(result1 != receivedCommands.rend())
     {
-        SPDLOG_TRACE("Message was found");
-        receivedCommands.erase(result);
+        SPDLOG_TRACE("Message {} was found", msg);
+        receivedCommands.erase((result1 + 1).base());
         return true;
     }
 
@@ -177,7 +171,8 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
     while(std::chrono::duration_cast<std::chrono::milliseconds>(endPt - startPt).count() < miliSec)
     {
         SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
-
+        auto numberOfMsg = receivedCommands.size();
+        isNewMsgFromAt = false;
         cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
         {
@@ -188,66 +183,22 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
         heartBeatRefresh();
         SPDLOG_TRACE("new message was arrived");
 
-        result = std::find_if(receivedCommands.begin(), receivedCommands.end(),
-                              [&msg](std::string m) { return m.find(msg) != std::string::npos; });
+        auto result = std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
+                                   [&msg](std::string m) { return m.find(msg) != std::string::npos; });
 
         if(result != receivedCommands.end())
         {
-            SPDLOG_TRACE("Message was found");
+            SPDLOG_TRACE("Message {} was found", msg);
             receivedCommands.erase(result);
             return true;
         }
         else
         {
-            SPDLOG_TRACE("New message is not correct, wait for next message");
+            SPDLOG_TRACE("New message is still not as expected");
         }
 
         endPt = std::chrono::steady_clock::now();
     }
-    SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
-    return false;
-}
-
-bool ATCommanderScheduler::waitForLastMessageTimeout(const std::string &msg, const uint32_t &miliSec)
-{
-    SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
-    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
-    if(receivedCommands.size() > 0)
-    {
-        auto lastMsg = std::prev(receivedCommands.end());
-        if(lastMsg->find(msg) != std::string::npos)
-        {
-            SPDLOG_TRACE("Message {} was found", msg);
-            receivedCommands.erase(lastMsg);
-            return true;
-        }
-    }
-
-    auto numberOfMsg = receivedCommands.size();
-
-    SPDLOG_TRACE("Expected message was not found: {}, wait for next message", msg);
-
-    isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
-    if(!isNewMsgFromAt)
-    {
-        SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
-        return false;
-    }
-    isNewMsgFromAt = false;
-    heartBeatRefresh();
-    SPDLOG_TRACE("new message was arrived");
-
-    auto result = std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
-                               [&msg](std::string m) { return m.find(msg) != std::string::npos; });
-
-    if(result != receivedCommands.end())
-    {
-        SPDLOG_TRACE("Message {} was found", msg);
-        receivedCommands.erase(result);
-        return true;
-    }
-
     SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
     return false;
 }
@@ -294,7 +245,7 @@ void ATCommanderScheduler::atCommandManager()
         }
 
         // Request config to GSM
-        if(atRequestsQueue.size() > 0)
+        if(atRequestsQueue.size() > 0 && receivedCommands.empty())
         {
             while(atRequestsQueue.size() > 0)
             {
@@ -429,7 +380,7 @@ void ATCommanderScheduler::heartBeatRefresh()
 
 void ATCommanderScheduler::heartBeatTick()
 {
-    if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) > 10)
+    if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) > 2)
     {
         SPDLOG_TRACE("TIMEOUT");
 
