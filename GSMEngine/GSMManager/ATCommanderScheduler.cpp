@@ -12,7 +12,7 @@ ATCommanderScheduler::ATCommanderScheduler(const std::string &port) : serial(por
                 SPDLOG_DEBUG("new AT message: {}", msg);
                 std::lock_guard<std::mutex> lk(receivedCommandsMutex);
                 isNewMsgFromAt = true;
-                receivedCommands.push_back(msg);
+                receivedCommands.push_back(ATResponse(std::chrono::steady_clock::now(), msg));
                 cvATReceiver.notify_one();
             });
 
@@ -53,8 +53,9 @@ bool ATCommanderScheduler::setConfigATE0()
 bool ATCommanderScheduler::sendSync()
 {
     const std::string atSync = "AT";
+    auto now = std::chrono::steady_clock::now();
     serial.sendMessage(atSync);
-    if(!waitForMessage("OK"))
+    if(!waitForMessage("OK", now))
     {
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
         return false;
@@ -70,7 +71,8 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
 
     if(!receivedCommands.empty())
     {
-        msg = receivedCommands.back();
+        auto receivedCommand = receivedCommands.back();
+        msg = receivedCommand.command;
         receivedCommands.pop_back();
         return true;
     }
@@ -90,7 +92,8 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
 
     if(!receivedCommands.empty())
     {
-        msg = receivedCommands.back();
+        auto receivedCommand = receivedCommands.back();
+        msg = receivedCommand.command;
         SPDLOG_TRACE("Last message:{}", msg);
         receivedCommands.pop_back();
         return true;
@@ -104,7 +107,8 @@ std::string ATCommanderScheduler::getOldestMessage()
 {
     SPDLOG_TRACE("getOldestMessage");
     std::lock_guard lk(receivedCommandsMutex);
-    auto msg = receivedCommands.front();
+    auto receivedCommand = receivedCommands.front();
+    auto msg = receivedCommand.command;
     receivedCommands.erase(receivedCommands.begin());
     return msg;
 }
@@ -115,7 +119,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
     if(receivedCommands.size() > 0)
     {
-        msg = receivedCommands.front();
+        msg = receivedCommands.front().command;
         receivedCommands.erase(receivedCommands.begin());
         return true;
     }
@@ -133,36 +137,44 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
 
     if(receivedCommands.size() > 0)
     {
-        msg = receivedCommands.front();
+        msg = receivedCommands.front().command;
         receivedCommands.erase(receivedCommands.begin());
         return true;
     }
     return false;
 }
 
-bool ATCommanderScheduler::waitForMessage(const std::string &msg)
+bool ATCommanderScheduler::waitForMessage(const std::string &msg,
+                                          const std::chrono::steady_clock::time_point &timePoint)
 {
-    return waitForMessageTimeout(msg, k_waitForMessageTimeout);
+    return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout);
 }
 
-bool ATCommanderScheduler::waitForConfirm(const std::string &msg)
+bool ATCommanderScheduler::waitForConfirm(const std::string &msg,
+                                          const std::chrono::steady_clock::time_point &timePoint)
 {
-    return waitForMessageTimeout(msg, k_waitForConfirmTimeout);
+    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout);
 }
 
-bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const uint32_t &miliSec)
+bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
+                                                 const std::chrono::steady_clock::time_point &timePoint,
+                                                 const uint32_t &miliSec)
 {
     SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
 
-    auto result1 = std::find_if(receivedCommands.rbegin(), receivedCommands.rend(),
-                                [&msg](std::string m) { return m.find(msg) != std::string::npos; });
-
-    if(result1 != receivedCommands.rend())
+    for(auto it = receivedCommands.rbegin(); it != receivedCommands.rend(); ++it)
     {
-        SPDLOG_TRACE("Message {} was found", msg);
-        receivedCommands.erase((result1 + 1).base());
-        return true;
+        if(it->timestamp < timePoint)
+        {
+            break;
+        }
+        if(it->command.find(msg) != std::string::npos)
+        {
+            SPDLOG_TRACE("Message {} was found", msg);
+            receivedCommands.erase((it + 1).base());
+            return true;
+        }
     }
 
     SPDLOG_TRACE("Expected message was not found: {}, loop is starting", msg);
@@ -183,8 +195,9 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg, const u
         heartBeatRefresh();
         SPDLOG_TRACE("new message was arrived");
 
-        auto result = std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
-                                   [&msg](std::string m) { return m.find(msg) != std::string::npos; });
+        auto result =
+                std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
+                             [&msg](ATResponse atReponse) { return atReponse.command.find(msg) != std::string::npos; });
 
         if(result != receivedCommands.end())
         {
@@ -325,11 +338,12 @@ void ATCommanderScheduler::configProcessing()
         atRequestsQueue.pop();
     }
     SPDLOG_DEBUG("AT request: {}", lastTask.request);
+    auto now = std::chrono::steady_clock::now();
     serial.sendMessage(lastTask.request);
     auto expectedResponses = lastTask.responsexpected;
     for(const auto &expect : expectedResponses)
     {
-        if(!waitForConfirm(expect))
+        if(!waitForConfirm(expect, now))
         {
             SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
             SPDLOG_ERROR("Failed to set config {}", lastTask.request);
@@ -349,22 +363,24 @@ void ATCommanderScheduler::smsRequestProcessing()
     const std::string sign = "=\"";
     std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
 
+    auto now = std::chrono::steady_clock::now();
     serial.sendMessage(command);
-    if(!waitForMessage(">"))
+    if(!waitForMessage(">", now))
     {
         SPDLOG_ERROR("msg:> was not arrived");
         return;
     }
+    now = std::chrono::steady_clock::now();
     serial.sendMessage(sms.message);
     serial.sendChar(SUB);
 
-    if(!waitForMessage(SMS_REQUEST))
+    if(!waitForMessage(SMS_REQUEST, now))
     {
         SPDLOG_ERROR("msg:{} was not arrived", SMS_REQUEST);
         return;
     }
 
-    if(!waitForConfirm("OK"))
+    if(!waitForConfirm("OK", now))
     {
         SPDLOG_ERROR("msg:OK was not arrived");
         return;

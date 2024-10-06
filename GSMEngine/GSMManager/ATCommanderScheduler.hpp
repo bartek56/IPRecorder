@@ -5,6 +5,14 @@
 #include <stdexcept>
 #include <queue>
 
+struct ATResponse
+{
+    ATResponse(std::chrono::steady_clock::time_point _timestamp, std::string _command): timestamp(_timestamp), command(_command)
+    {}
+    std::chrono::steady_clock::time_point timestamp;
+    std::string command;
+};
+
 struct ATRequest
 {
     std::string request;
@@ -68,10 +76,9 @@ private:
     bool getLastMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     std::string getOldestMessage();
     bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
-    bool waitForMessage(const std::string &msg);
-    bool waitForConfirm(const std::string &msg);
-    // TODO add timestamps to every message from AT, and verify that next received message was came after send request
-    bool waitForMessageTimeout(const std::string &msg, const uint32_t &sec);
+    bool waitForMessage(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint);
+    bool waitForConfirm(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint);
+    bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint, const uint32_t &sec);
 
     // TODO move it to utils
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
@@ -83,7 +90,7 @@ private:
     bool isNewMsgFromAt = false;
 
     // received AT command
-    std::vector<std::string> receivedCommands;
+    std::vector<ATResponse> receivedCommands;
     std::mutex receivedCommandsMutex;
     std::condition_variable cvATReceiver;
 
