@@ -132,7 +132,8 @@ class NotificationManager():
         contact = self.checkSender(sms.number)
         Logger.INFO("New SMS:", sms.number, sms.msg)
         if contact is None:
-            self.sendSMSAdmin("unknown number send sms to me")
+            textOfSms = "Uknown number: " + sms.number + " send sms to me: \"" + sms.msg + "\""
+            self.sendSMSAdmin(textOfSms)
             return
         data_str = sms.msg
 
