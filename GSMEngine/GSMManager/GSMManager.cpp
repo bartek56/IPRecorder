@@ -38,6 +38,16 @@ Sms GSMManager::getSms()
     return atCommander.getLastSms();
 }
 
+bool GSMManager::isNewCall()
+{
+    return atCommander.isNewCall();
+}
+
+Call GSMManager::getCall()
+{
+    return atCommander.getLastCall();
+}
+
 bool GSMManager::setDefaultConfig()
 {
     auto setConfig = [&](const std::string &command)

@@ -65,6 +65,7 @@ def main():
     Logger.INFO("-------------- Initialization was finished -----------------")
     while not killer.kill_now:
         notificationManager.checkNewMessage()
+        notificationManager.checkNewCall()
         if (counter4s >= 8): # 8 x 0.5s = 4s
             Logger.DEBUG("4 sec")
             counter4s=0

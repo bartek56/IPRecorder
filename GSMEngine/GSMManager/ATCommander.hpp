@@ -17,6 +17,8 @@ public:
     bool sendSmsSync(const SmsRequest& sms);
     bool isNewSms();
     Sms getLastSms();
+    bool isNewCall();
+    Call getLastCall();
 };
 
 #endif // ATCOMMANDER_HPP

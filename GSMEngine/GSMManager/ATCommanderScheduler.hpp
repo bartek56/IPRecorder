@@ -47,6 +47,19 @@ struct Sms
     std::string msg;
 };
 
+struct Call
+{
+    Call(std::string _number) : number(_number)
+    {
+    }
+    Call() : number("")
+    {
+    }
+
+
+    // TODO time point of call std::chrono::system_clock::time_point timePoint;
+    std::string number;
+};
 
 class ATCommanderScheduler
 {
@@ -69,6 +82,10 @@ protected:
     std::queue<Sms> receivedSmses;
     std::mutex smsMutex;
 
+    // calls
+    std::queue<Call> calls;
+    std::mutex callsMutex;
+
 private:
     bool setConfigATE0();
     bool sendSync();
@@ -82,8 +99,6 @@ private:
 
     // TODO move it to utils
     std::vector<std::string> split(std::string &s, const std::string &delimiter);
-
-    // TODO send SMS info when somebody was called
 
     // --------------------------------------------
     Serial serial;

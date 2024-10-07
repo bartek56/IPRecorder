@@ -16,6 +16,8 @@ public:
     bool sendSmsSync(const std::string& number, const std::string& message);
     bool isNewSms();
     Sms getSms();
+    bool isNewCall();
+    Call getCall();
 private:
     ATCommander atCommander;
     bool setDefaultConfig();

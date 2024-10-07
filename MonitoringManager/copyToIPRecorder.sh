@@ -1,3 +1,3 @@
 #!/bin/bash
 
-scp -pr MonitoringManager iprecorder:/home/Documents/IPRecorder/
+scp -pr MonitoringManager iprecorder:/home/iprecorder/Documents/IPRecorder/MonitoringManager

@@ -62,3 +62,17 @@ Sms ATCommander::getLastSms()
     receivedSmses.pop();
     return lastSms;
 }
+
+bool ATCommander::isNewCall()
+{
+    std::lock_guard<std::mutex> lc(callsMutex);
+    return !calls.empty();
+}
+
+Call ATCommander::getLastCall()
+{
+    std::lock_guard<std::mutex> lc(callsMutex);
+    auto lastCall = calls.front();
+    calls.pop();
+    return lastCall;
+}

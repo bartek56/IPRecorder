@@ -152,6 +152,14 @@ class NotificationManager():
             self.sendSMS(contact.numbers[0].number,
                          "Nie wiem, czego ode mnie zadasz")
 
+    def checkNewCall(self):
+        if (not self.gsmManager.isNewCall()):
+            return
+        call = self.gsmManager.getCall()
+        info = "New call from " + call.number
+        Logger.INFO(info)
+        self.sendSMSAdmin(info)
+
 
 # if __name__ == "__main__":
 #    notificationManager = NotificationManager()

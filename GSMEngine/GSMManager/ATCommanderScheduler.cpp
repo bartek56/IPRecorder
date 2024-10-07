@@ -316,9 +316,15 @@ void ATCommanderScheduler::smsProcessing(const std::string msg)
     }
 }
 
-void ATCommanderScheduler::callingProcessing(const std::string msg)
+void ATCommanderScheduler::callingProcessing(std::string msg)
 {
-    SPDLOG_INFO("Calling !!! {}", msg);
+    // +CLIP: "+48791942336",145,,,"",0
+    auto splitted = split(msg, ": ");
+    auto callInfo = splitted[1];
+    auto splitted2 = split(callInfo, ",");
+    auto number = splitted2[0].substr(1, splitted2[0].length() - 2);
+    SPDLOG_INFO("Calling from {} !!! ", number);
+
     ATRequest request = ATRequest();
     request.request = "ATH";
     request.responsexpected.push_back("NO CARRIER");
@@ -327,6 +333,7 @@ void ATCommanderScheduler::callingProcessing(const std::string msg)
         std::lock_guard lock(atRequestsMutex);
         atRequestsQueue.push(request);
     }
+    calls.push(Call(number));
 }
 
 void ATCommanderScheduler::configProcessing()
@@ -412,6 +419,7 @@ void ATCommanderScheduler::heartBeatTick()
 
 std::vector<std::string> ATCommanderScheduler::split(std::string &s, const std::string &delimiter)
 {
+    /// TODO const std::string &s
     std::vector<std::string> vec;
     size_t pos = 0;
     std::string token;

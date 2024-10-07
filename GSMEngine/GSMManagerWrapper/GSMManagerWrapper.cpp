@@ -13,6 +13,7 @@ PYBIND11_MODULE(GSMEngine, m)
             .def_readwrite("number", &Sms::number)
             .def_readwrite("dateAndTime", &Sms::dateAndTime)
             .def_readwrite("msg", &Sms::msg);
+    py::class_<Call>(m, "Call").def(py::init<>()).def_readwrite("number", &Call::number);
 
     py::class_<GSMManager>(m, "GSMManager")
             .def(py::init<const std::string &>())
@@ -20,5 +21,7 @@ PYBIND11_MODULE(GSMEngine, m)
             .def("sendSms", &GSMManager::sendSms)
             .def("sendSmsSync", &GSMManager::sendSmsSync)
             .def("isNewSms", &GSMManager::isNewSms)
-            .def("getSms", &GSMManager::getSms);
+            .def("getSms", &GSMManager::getSms)
+            .def("isNewCall", &GSMManager::isNewCall)
+            .def("getCall", &GSMManager::getCall);
 }
