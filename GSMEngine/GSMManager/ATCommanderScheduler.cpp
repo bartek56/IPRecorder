@@ -1,4 +1,5 @@
 #include "spdlog/spdlog.h"
+#include "Utils.hpp"
 #include "ATCommanderScheduler.hpp"
 
 #include "ATConfig.hpp"
@@ -287,12 +288,12 @@ void ATCommanderScheduler::atCommandManager()
 void ATCommanderScheduler::smsProcessing(const std::string msg)
 {
     auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
-    auto splitted = split(msgWithoutCRLF, ",,");
+    auto splitted = utils::split(msgWithoutCRLF, ",,");
 
     splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
     splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
 
-    auto number = split(splitted[0], " ")[1];
+    auto number = utils::split(splitted[0], " ")[1];
     Sms sms;
     sms.number = number;
     auto date = splitted[1];
@@ -319,9 +320,9 @@ void ATCommanderScheduler::smsProcessing(const std::string msg)
 void ATCommanderScheduler::callingProcessing(std::string msg)
 {
     // +CLIP: "+48791942336",145,,,"",0
-    auto splitted = split(msg, ": ");
+    auto splitted = utils::split(msg, ": ");
     auto callInfo = splitted[1];
-    auto splitted2 = split(callInfo, ",");
+    auto splitted2 = utils::split(callInfo, ",");
     auto number = splitted2[0].substr(1, splitted2[0].length() - 2);
     SPDLOG_INFO("Calling from {} !!! ", number);
 
@@ -417,21 +418,6 @@ void ATCommanderScheduler::heartBeatTick()
     }
 }
 
-std::vector<std::string> ATCommanderScheduler::split(std::string &s, const std::string &delimiter)
-{
-    /// TODO const std::string &s
-    std::vector<std::string> vec;
-    size_t pos = 0;
-    std::string token;
-    while((pos = s.find(delimiter)) != std::string::npos)
-    {
-        token = s.substr(0, pos);
-        vec.push_back(token);
-        s.erase(0, pos + delimiter.length());
-    }
-    vec.push_back(s);
-    return vec;
-}
 
 ATCommanderScheduler::~ATCommanderScheduler()
 {

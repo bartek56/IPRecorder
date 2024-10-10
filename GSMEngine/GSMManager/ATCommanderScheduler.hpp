@@ -56,7 +56,6 @@ struct Call
     {
     }
 
-
     // TODO time point of call std::chrono::system_clock::time_point timePoint;
     std::string number;
 };
