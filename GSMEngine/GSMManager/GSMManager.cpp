@@ -2,8 +2,6 @@
 #include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
-#include <iostream>
-
 GSMManager::GSMManager(const std::string &port) : atCommander(port)
 {
 }

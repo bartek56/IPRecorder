@@ -2,7 +2,6 @@
 #define TASKS_HPP
 
 #include "spdlog/spdlog.h"
-#include <string>
 #include <queue>
 #include <mutex>
 #include <memory>
@@ -10,7 +9,6 @@
 #include <condition_variable>
 #include <thread>
 #include <functional>
-#include <iostream>
 
 static constexpr uint32_t k_maxWaitingTimeoutForCallRequest = 8000;
 static constexpr uint32_t k_waitingTimeoutForNewTask = 400;

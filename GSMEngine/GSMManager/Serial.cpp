@@ -6,8 +6,6 @@
 #include <unistd.h>
 
 #include <cstring>
-#include <iomanip>
-#include <iostream>
 #include <array>
 #include <mutex>
 #include "spdlog/spdlog.h"
@@ -101,7 +99,7 @@ void Serial::readThread()
             {
                 {
                     std::lock_guard<std::mutex> lock(serialMutex);
-                    bytesRead = read(fd, buffer.data() + totalBytesRead, sizeof(buffer) - totalBytesRead - 1);
+                    bytesRead = read(fd, buffer.data() + totalBytesRead, k_bufferSize - totalBytesRead - 1);
                 }
 
                 if(bytesRead > 0)

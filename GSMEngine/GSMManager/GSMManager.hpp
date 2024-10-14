@@ -1,7 +1,6 @@
 #ifndef GSMMANAGER_HPP
 #define GSMMANAGER_HPP
 
-#include "Tasks.hpp"
 #include "ATCommander.hpp"
 
 #include <string>

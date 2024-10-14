@@ -28,7 +28,7 @@ public:
     void sendChar(const char &message);
 
 private:
-    static constexpr size_t k_bufferSize = 256;
+    static constexpr uint32_t k_bufferSize = 256;
     static constexpr size_t k_activeTimems = 400;
     static constexpr size_t k_sleepTimems = 100;
     static constexpr size_t k_activeTimeus = k_activeTimems * 1000;

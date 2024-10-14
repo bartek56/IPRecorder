@@ -1,16 +1,16 @@
 project(GSMEngine)
 
-find_package(PythonLibs REQUIRED)
-include_directories(${PYTHON_INCLUDE_DIRS})
-
-#too old cmake on IPRecorder
-#on the IPRecorder libboost_python should be located in /usr/lib, not in /usr/local/lib
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
 # library for python wrapper
 include_directories(${CMAKE_SOURCE_DIR}/GSMManager ${SPDLOG_INCLUDE_DIR})
-
 pybind11_add_module(${PROJECT_NAME} GSMManagerWrapper.cpp)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE GSMManager)
+
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=auto")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto=auto")
+
 set(Python_EXECUTABLE "/usr/bin/python3")
 # print(sys.path[-1] belowe for Ubuntu
 execute_process(
@@ -19,5 +19,6 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "python library install path: ${PYTHON_SITE_PACKAGES}")
+
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${PYTHON_SITE_PACKAGES})

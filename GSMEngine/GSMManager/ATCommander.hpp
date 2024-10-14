@@ -2,9 +2,7 @@
 #define ATCOMMANDER_HPP
 
 #include <string>
-#include <queue>
 #include "ATCommanderScheduler.hpp"
-
 
 
 class ATCommander : public ATCommanderScheduler

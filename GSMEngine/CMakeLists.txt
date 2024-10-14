@@ -1,8 +1,7 @@
+cmake_minimum_required(VERSION 3.5)
 project(GSMEngine)
 
 set (CMAKE_CXX_STANDARD 17)
-cmake_minimum_required(VERSION 3.0)
-
 
 option(SIMULATOR "Simulator" OFF)
 if(SIMULATOR)
