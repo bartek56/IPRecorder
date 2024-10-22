@@ -10,7 +10,7 @@ ATCommanderScheduler::ATCommanderScheduler(const std::string &port) : serial(por
     serial.setReadEvent(
             [&](const std::string &msg)
             {
-                SPDLOG_DEBUG("new AT message: {}", msg);
+                SPDLOG_TRACE("new AT message: {}", msg);
                 std::lock_guard<std::mutex> lk(receivedCommandsMutex);
                 isNewMsgFromAt = true;
                 receivedCommands.push_back(ATResponse(std::chrono::steady_clock::now(), msg));
@@ -56,7 +56,7 @@ bool ATCommanderScheduler::sendSync()
     const std::string atSync = "AT";
     auto now = std::chrono::steady_clock::now();
     serial.sendMessage(atSync);
-    if(!waitForMessage("OK", now))
+    if(!waitForSyncConfirm("OK", now))
     {
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
         return false;
@@ -122,6 +122,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     {
         msg = receivedCommands.front().command;
         receivedCommands.erase(receivedCommands.begin());
+        SPDLOG_DEBUG("\"{}\" - last message", msg);
         return true;
     }
     SPDLOG_TRACE("wait for new AT message");
@@ -140,6 +141,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     {
         msg = receivedCommands.front().command;
         receivedCommands.erase(receivedCommands.begin());
+        SPDLOG_DEBUG("\"{}\" - new message", msg);
         return true;
     }
     return false;
@@ -148,18 +150,23 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
 bool ATCommanderScheduler::waitForMessage(const std::string &msg,
                                           const std::chrono::steady_clock::time_point &timePoint)
 {
-    return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout);
+    return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout, true);
 }
 
 bool ATCommanderScheduler::waitForConfirm(const std::string &msg,
                                           const std::chrono::steady_clock::time_point &timePoint)
 {
-    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout);
+    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout, true);
+}
+
+bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint)
+{
+    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout, false);
 }
 
 bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
                                                  const std::chrono::steady_clock::time_point &timePoint,
-                                                 const uint32_t &miliSec)
+                                                 const uint32_t &miliSec, bool printLog)
 {
     SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
@@ -172,7 +179,10 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
         }
         if(it->command.find(msg) != std::string::npos)
         {
-            SPDLOG_TRACE("Message {} was found", msg);
+            if (printLog == true)
+            {
+                SPDLOG_DEBUG("\"{}\" was confirmed", msg);
+            }
             receivedCommands.erase((it + 1).base());
             return true;
         }
@@ -202,7 +212,10 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
 
         if(result != receivedCommands.end())
         {
-            SPDLOG_TRACE("Message {} was found", msg);
+            if(printLog == true)
+            {
+                SPDLOG_DEBUG("\"{}\" new msg was confirmed", msg);
+            }
             receivedCommands.erase(result);
             return true;
         }
@@ -303,7 +316,7 @@ void ATCommanderScheduler::smsProcessing(const std::string msg)
     // get next message from the queue (text of SMS)
     std::string msgSms;
 
-    bool result = getOldestMessageWithTimeout(k_waitForMessageTimeout, msgSms);
+    bool result = getOldestMessageWithTimeout(k_waitForConfirmTimeout, msgSms);
     if(!result)
     {
         SPDLOG_ERROR("Failed to get SMS message");
@@ -345,7 +358,7 @@ void ATCommanderScheduler::configProcessing()
         lastTask = atRequestsQueue.front();
         atRequestsQueue.pop();
     }
-    SPDLOG_DEBUG("AT request: {}", lastTask.request);
+    SPDLOG_TRACE("AT request: {}", lastTask.request);
     auto now = std::chrono::steady_clock::now();
     serial.sendMessage(lastTask.request);
     auto expectedResponses = lastTask.responsexpected;
@@ -417,7 +430,6 @@ void ATCommanderScheduler::heartBeatTick()
         heartBeatRefresh();
     }
 }
-
 
 ATCommanderScheduler::~ATCommanderScheduler()
 {

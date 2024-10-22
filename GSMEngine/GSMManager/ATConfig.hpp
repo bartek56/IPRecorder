@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <cstdint>
 
 #if SIMULATOR == 1
 static const std::vector<std::string> k_defaultConfig{"AT", "AT1", "AT2"};
@@ -13,7 +14,7 @@ static constexpr uint32_t k_waitForConfirmTimeout = 10000;
 #if SIMULATOR == 0
 static const std::vector<std::string> k_defaultConfig{"AT", "AT+CMGF=1", "AT+CNMI=1,2,0,0", "AT+CLIP=1"};
 static constexpr uint32_t k_waitForMessageTimeout = 8000;
-static constexpr uint32_t k_waitForConfirmTimeout = 1000;
+static constexpr uint32_t k_waitForConfirmTimeout = 2000;
 #endif
 
 static constexpr char AT [] = "AT";

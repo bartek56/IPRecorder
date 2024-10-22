@@ -8,7 +8,7 @@
 class ATCommander : public ATCommanderScheduler
 {
 public:
-    explicit ATCommander(const std::string &port);
+    explicit ATCommander(const std::string &port) noexcept;
 
     bool setConfig(const std::string& command);
     bool sendSms(const SmsRequest& sms);

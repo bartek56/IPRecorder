@@ -94,7 +94,9 @@ private:
     bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     bool waitForMessage(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint);
     bool waitForConfirm(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint);
-    bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint, const uint32_t &sec);
+    bool waitForSyncConfirm(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint);
+    /// TODO refactor it/ printLog and timePoint should be get from another place - constexpr if
+    bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint, const uint32_t &sec, bool printLog);
 
     // TODO move it to utils
     std::vector<std::string> split(std::string &s, const std::string &delimiter);

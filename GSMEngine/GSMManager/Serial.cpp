@@ -202,12 +202,10 @@ void Serial::sendThread()
             {
                 SPDLOG_ERROR("Error to send data");
             }
-
             else
             {
-                SPDLOG_DEBUG("Message was send {}", newMessage->data());
+                SPDLOG_TRACE("Message was send {}", newMessage->data());
             }
-
 
             m_messagesWriteQueue.erase(newMessage);
         }

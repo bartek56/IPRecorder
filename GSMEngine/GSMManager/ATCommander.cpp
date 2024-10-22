@@ -2,13 +2,13 @@
 #include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
-ATCommander::ATCommander(const std::string &port) : ATCommanderScheduler(port)
+ATCommander::ATCommander(const std::string &port) noexcept : ATCommanderScheduler(port)
 {
 }
 
 bool ATCommander::setConfig(const std::string &command)
 {
-    SPDLOG_DEBUG("setConfig");
+    SPDLOG_DEBUG("setConfig: {}", command);
     ATRequest request = ATRequest();
     request.request = command + EOL;
     request.responsexpected.push_back("OK");
@@ -23,6 +23,7 @@ bool ATCommander::setConfig(const std::string &command)
         SPDLOG_ERROR("wait for setConfig timeout!");
         return false;
     }
+    SPDLOG_DEBUG("Setting \"{}\" was successful", command);
     return true;
 }
 
