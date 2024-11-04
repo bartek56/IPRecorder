@@ -54,13 +54,18 @@ bool ATCommanderScheduler::setConfigATE0()
 bool ATCommanderScheduler::sendSync()
 {
     const std::string atSync = "AT";
-    auto now = std::chrono::steady_clock::now();
     serial.sendMessage(atSync);
-    if(!waitForSyncConfirm("OK", now))
+    if(!waitForSyncConfirm("OK"))
     {
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
         return false;
     }
+    if(!receivedCommands.empty())
+    {
+        SPDLOG_ERROR("Unexpected message was came! SendSync failed!");
+        return false;
+    }
+
     return true;
 }
 
@@ -150,23 +155,61 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
 bool ATCommanderScheduler::waitForMessage(const std::string &msg,
                                           const std::chrono::steady_clock::time_point &timePoint)
 {
-    return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout, true);
+    return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout);
 }
 
 bool ATCommanderScheduler::waitForConfirm(const std::string &msg,
                                           const std::chrono::steady_clock::time_point &timePoint)
 {
-    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout, true);
+    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout);
 }
 
-bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint)
+bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg)
 {
-    return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout, false);
+    SPDLOG_TRACE("waitForSyncConfirm: msg: {}", msg);
+    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
+
+    for(auto it = receivedCommands.rbegin(); it != receivedCommands.rend(); ++it)
+    {
+        if(it->command.find(msg) != std::string::npos)
+        {
+            SPDLOG_TRACE("\"{}\" was confirmed", msg);
+            receivedCommands.erase((it + 1).base());
+            return true;
+        }
+    }
+
+    SPDLOG_TRACE("Expected message was not found: {}, loop is starting", msg);
+    auto startPt = std::chrono::steady_clock::now();
+    auto endPt = startPt;
+    SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
+    isNewMsgFromAt = false;
+    cvATReceiver.wait_for(lk, std::chrono::milliseconds(k_waitForConfirmTimeout), [this]() { return isNewMsgFromAt; });
+    if(!isNewMsgFromAt)
+    {
+        SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, k_waitForConfirmTimeout);
+        return false;
+    }
+    isNewMsgFromAt = false;
+    heartBeatRefresh();
+    SPDLOG_TRACE("new message was arrived");
+
+    auto lastMessage = receivedCommands.begin();
+    if(lastMessage->command.find(msg) != std::string::npos)
+    {
+        SPDLOG_TRACE("\"{}\" new msg was confirmed", msg);
+        receivedCommands.erase(lastMessage);
+        return true;
+    }
+
+    endPt = std::chrono::steady_clock::now();
+    SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, k_waitForConfirmTimeout);
+    return false;
 }
 
 bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
                                                  const std::chrono::steady_clock::time_point &timePoint,
-                                                 const uint32_t &miliSec, bool printLog)
+                                                 const uint32_t &miliSec)
 {
     SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
     std::unique_lock<std::mutex> lk(receivedCommandsMutex);
@@ -179,10 +222,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
         }
         if(it->command.find(msg) != std::string::npos)
         {
-            if (printLog == true)
-            {
-                SPDLOG_DEBUG("\"{}\" was confirmed", msg);
-            }
+            SPDLOG_DEBUG("\"{}\" was confirmed", msg);
             receivedCommands.erase((it + 1).base());
             return true;
         }
@@ -212,10 +252,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
 
         if(result != receivedCommands.end())
         {
-            if(printLog == true)
-            {
-                SPDLOG_DEBUG("\"{}\" new msg was confirmed", msg);
-            }
+            SPDLOG_DEBUG("\"{}\" new msg was confirmed", msg);
             receivedCommands.erase(result);
             return true;
         }
@@ -291,7 +328,11 @@ void ATCommanderScheduler::atCommandManager()
             atSmsRequestCv.notify_one();
         }
 
-        heartBeatTick();
+        if(receivedCommands.empty())
+        {
+            heartBeatTick();
+        }
+
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
