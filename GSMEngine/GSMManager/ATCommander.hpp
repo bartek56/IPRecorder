@@ -8,9 +8,9 @@
 class ATCommander : public ATCommanderScheduler
 {
 public:
-    explicit ATCommander(const std::string &port) noexcept;
+    explicit ATCommander(std::string_view port) noexcept;
 
-    bool setConfig(const std::string& command);
+    bool setConfig(std::string_view command);
     bool sendSms(const SmsRequest& sms);
     bool sendSmsSync(const SmsRequest& sms);
     bool isNewSms();

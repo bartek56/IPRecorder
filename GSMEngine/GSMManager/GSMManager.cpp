@@ -2,7 +2,7 @@
 #include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
-GSMManager::GSMManager(const std::string &port) : atCommander(port)
+GSMManager::GSMManager(std::string_view port) : atCommander(port)
 {
 }
 

@@ -9,7 +9,7 @@
 class GSMManager
 {
 public:
-    GSMManager(const std::string& port);
+    GSMManager(std::string_view port);
     bool initilize();
     bool sendSms(const std::string& number, const std::string& message);
     bool sendSmsSync(const std::string& number, const std::string& message);

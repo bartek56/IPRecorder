@@ -15,7 +15,7 @@
 class Serial
 {
 public:
-    explicit Serial(const std::string& serialPort);
+    explicit Serial(std::string_view serialPort);
     Serial(const Serial&) = delete;
     Serial &operator=(const Serial&) = delete;
     Serial(Serial&&) = delete;

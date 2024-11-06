@@ -2,15 +2,15 @@
 #include "spdlog/spdlog.h"
 #include "ATConfig.hpp"
 
-ATCommander::ATCommander(const std::string &port) noexcept : ATCommanderScheduler(port)
+ATCommander::ATCommander(std::string_view port) noexcept : ATCommanderScheduler(port)
 {
 }
 
-bool ATCommander::setConfig(const std::string &command)
+bool ATCommander::setConfig(std::string_view command)
 {
     SPDLOG_DEBUG("setConfig: {}", command);
     ATRequest request = ATRequest();
-    request.request = command + EOL;
+    request.request = command;
     request.responsexpected.push_back("OK");
 
     std::unique_lock lk(atRequestsMutex);

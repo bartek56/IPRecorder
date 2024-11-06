@@ -4,7 +4,7 @@
 
 #include "ATConfig.hpp"
 
-ATCommanderScheduler::ATCommanderScheduler(const std::string &port) : serial(port)
+ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
 {
     receivedCommands.reserve(20);
     serial.setReadEvent(
@@ -53,8 +53,7 @@ bool ATCommanderScheduler::setConfigATE0()
 
 bool ATCommanderScheduler::sendSync()
 {
-    const std::string atSync = "AT";
-    serial.sendMessage(atSync);
+    serial.sendMessage(AT);
     if(!waitForSyncConfirm("OK"))
     {
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
@@ -339,9 +338,9 @@ void ATCommanderScheduler::atCommandManager()
     SPDLOG_DEBUG("AT comnand manager thread closed");
 }
 
-void ATCommanderScheduler::smsProcessing(const std::string msg)
+void ATCommanderScheduler::smsProcessing(const std::string &msg)
 {
-    auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
+    const auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
     auto splitted = utils::split(msgWithoutCRLF, ",,");
 
     splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
@@ -371,7 +370,7 @@ void ATCommanderScheduler::smsProcessing(const std::string msg)
     }
 }
 
-void ATCommanderScheduler::callingProcessing(std::string msg)
+void ATCommanderScheduler::callingProcessing(const std::string &msg)
 {
     // +CLIP: "+48791942336",145,,,"",0
     auto splitted = utils::split(msg, ": ");

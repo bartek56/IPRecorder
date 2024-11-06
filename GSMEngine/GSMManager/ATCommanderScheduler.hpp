@@ -63,7 +63,7 @@ struct Call
 class ATCommanderScheduler
 {
 public:
-    ATCommanderScheduler(const std::string &port);
+    ATCommanderScheduler(std::string_view port);
     ~ATCommanderScheduler();
 
 protected:
@@ -98,9 +98,6 @@ private:
     /// TODO refactor it/ printLog and timePoint should be get from another place - constexpr if
     bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint, const uint32_t &sec);
 
-    // TODO move it to utils
-    std::vector<std::string> split(std::string &s, const std::string &delimiter);
-
     // --------------------------------------------
     Serial serial;
     bool isNewMsgFromAt = false;
@@ -114,8 +111,8 @@ private:
     std::unique_ptr<std::thread> atThread;
     void atCommandManager();
     std::atomic<bool> atCommandManagerIsRunning;
-    void smsProcessing(std::string msg);
-    void callingProcessing(std::string msg);
+    void smsProcessing(const std::string& msg);
+    void callingProcessing(const std::string& msg);
     void configProcessing();
     void smsRequestProcessing();
 

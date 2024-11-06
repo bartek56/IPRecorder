@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace utils {
-std::vector<std::string> split(std::string &s, const std::string &delimiter);
+std::vector<std::string> split(const std::string& s, const std::string &delimiter);
 }
 
 #endif // UTILS_HPP

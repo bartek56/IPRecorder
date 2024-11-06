@@ -11,9 +11,9 @@
 #include "spdlog/spdlog.h"
 
 
-Serial::Serial(const std::string &serialPort) : serialRunning(true)
+Serial::Serial(std::string_view serialPort) : serialRunning(true)
 {
-    fd = open(serialPort.c_str(), O_RDWR);
+    fd = open(serialPort.begin(), O_RDWR);
     if(fd == -1)
     {
         SPDLOG_ERROR("GSM serial is not connected on port: {}", serialPort);
