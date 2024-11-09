@@ -3,7 +3,8 @@
 #include "ATCommanderScheduler.hpp"
 
 #include "ATConfig.hpp"
-
+namespace AT
+{
 ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
 {
     receivedCommands.reserve(20);
@@ -53,7 +54,7 @@ bool ATCommanderScheduler::setConfigATE0()
 
 bool ATCommanderScheduler::sendSync()
 {
-    serial.sendMessage(AT);
+    serial.sendMessage(AT_SYNC);
     if(!waitForSyncConfirm("OK"))
     {
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
@@ -476,3 +477,4 @@ ATCommanderScheduler::~ATCommanderScheduler()
     atCommandManagerIsRunning.store(false);
     atThread->join();
 }
+}// namespace AT

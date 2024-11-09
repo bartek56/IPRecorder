@@ -4,11 +4,14 @@
 #include "Serial.hpp"
 #include <stdexcept>
 #include <queue>
-
+namespace AT
+{
 struct ATResponse
 {
-    ATResponse(std::chrono::steady_clock::time_point _timestamp, std::string _command): timestamp(_timestamp), command(_command)
-    {}
+    ATResponse(std::chrono::steady_clock::time_point _timestamp, std::string _command)
+        : timestamp(_timestamp), command(_command)
+    {
+    }
     std::chrono::steady_clock::time_point timestamp;
     std::string command;
 };
@@ -92,11 +95,12 @@ private:
     bool getLastMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     std::string getOldestMessage();
     bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
-    bool waitForMessage(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint);
-    bool waitForConfirm(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint);
+    bool waitForMessage(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint);
+    bool waitForConfirm(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint);
     bool waitForSyncConfirm(const std::string &msg);
     /// TODO refactor it/ printLog and timePoint should be get from another place - constexpr if
-    bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point& timePoint, const uint32_t &sec);
+    bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint,
+                               const uint32_t &sec);
 
     // --------------------------------------------
     Serial serial;
@@ -111,8 +115,8 @@ private:
     std::unique_ptr<std::thread> atThread;
     void atCommandManager();
     std::atomic<bool> atCommandManagerIsRunning;
-    void smsProcessing(const std::string& msg);
-    void callingProcessing(const std::string& msg);
+    void smsProcessing(const std::string &msg);
+    void callingProcessing(const std::string &msg);
     void configProcessing();
     void smsRequestProcessing();
 
@@ -121,5 +125,6 @@ private:
     void heartBeatRefresh();
     void heartBeatTick();
 };
+}// namespace AT
 
 #endif// ATCOMMANDERSCHEDULER_HPP

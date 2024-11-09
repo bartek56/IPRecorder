@@ -4,7 +4,7 @@
 #include "ATCommander.hpp"
 
 #include <string>
-
+using namespace AT;
 
 class GSMManager
 {

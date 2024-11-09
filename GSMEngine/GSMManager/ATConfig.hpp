@@ -17,7 +17,7 @@ static constexpr uint32_t k_waitForMessageTimeout = 8000;
 static constexpr uint32_t k_waitForConfirmTimeout = 2000;
 #endif
 
-static constexpr char AT [] = "AT";
+static constexpr char AT_SYNC [] = "AT";
 static constexpr char CALLING [] = "+CLIP:";
 static constexpr char SMS_RESPONSE [] = "+CMT:";
 static constexpr char AT_SMS_REQUEST[] = "AT+CMGS";

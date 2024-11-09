@@ -1,7 +1,13 @@
 #include "ATCommander.hpp"
-#include "spdlog/spdlog.h"
+#include "ATCommanderScheduler.hpp"
 #include "ATConfig.hpp"
+#include "spdlog/spdlog.h"
+#include <chrono>
+#include <mutex>
+#include <string_view>
 
+namespace AT
+{
 ATCommander::ATCommander(std::string_view port) noexcept : ATCommanderScheduler(port)
 {
 }
@@ -11,12 +17,12 @@ bool ATCommander::setConfig(std::string_view command)
     SPDLOG_DEBUG("setConfig: {}", command);
     ATRequest request = ATRequest();
     request.request = command;
-    request.responsexpected.push_back("OK");
+    request.responsexpected.emplace_back("OK");
 
-    std::unique_lock lk(atRequestsMutex);
+    std::unique_lock lockRequestsQueue(atRequestsMutex);
     atRequestsQueue.push(request);
 
-    atRequestCv.wait_for(lk, std::chrono::milliseconds(k_waitForMessageTimeout),
+    atRequestCv.wait_for(lockRequestsQueue, std::chrono::milliseconds(k_waitForMessageTimeout),
                          [this]() { return atRequestsQueue.empty(); });
     if(!atRequestsQueue.empty())
     {
@@ -30,7 +36,7 @@ bool ATCommander::setConfig(std::string_view command)
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
     SPDLOG_DEBUG("add SMS to queue: Text: \"{}\" number: {}", sms.message, sms.number);
-    std::lock_guard lock(atSmsRequestMutex);
+    const std::lock_guard lock(atSmsRequestMutex);
     atSmsRequestQueue.push(sms);
     return true;
 }
@@ -38,9 +44,9 @@ bool ATCommander::sendSms(const SmsRequest &sms)
 bool ATCommander::sendSmsSync(const SmsRequest &sms)
 {
     SPDLOG_DEBUG("sending SMS: Text: \"{}\" number: {}", sms.message, sms.number);
-    std::unique_lock lk(atSmsRequestMutex);
+    std::unique_lock lockRequestsQueue(atSmsRequestMutex);
     atSmsRequestQueue.push(sms);
-    atSmsRequestCv.wait_for(lk, std::chrono::milliseconds(k_waitForMessageTimeout),
+    atSmsRequestCv.wait_for(lockRequestsQueue, std::chrono::milliseconds(k_waitForMessageTimeout),
                             [this]() { return atSmsRequestQueue.empty(); });
     if(!atSmsRequestQueue.empty())
     {
@@ -52,13 +58,13 @@ bool ATCommander::sendSmsSync(const SmsRequest &sms)
 
 bool ATCommander::isNewSms()
 {
-    std::lock_guard<std::mutex> lc(smsMutex);
+    const std::lock_guard<std::mutex> lockReceivedSmses(smsMutex);
     return !receivedSmses.empty();
 }
 
 Sms ATCommander::getLastSms()
 {
-    std::lock_guard<std::mutex> lc(smsMutex);
+    const std::lock_guard<std::mutex> lockReceivedSmses(smsMutex);
     auto lastSms = receivedSmses.front();
     receivedSmses.pop();
     return lastSms;
@@ -66,14 +72,15 @@ Sms ATCommander::getLastSms()
 
 bool ATCommander::isNewCall()
 {
-    std::lock_guard<std::mutex> lc(callsMutex);
+    const std::lock_guard<std::mutex> lockCalls(callsMutex);
     return !calls.empty();
 }
 
 Call ATCommander::getLastCall()
 {
-    std::lock_guard<std::mutex> lc(callsMutex);
+    const std::lock_guard<std::mutex> lockCalls(callsMutex);
     auto lastCall = calls.front();
     calls.pop();
     return lastCall;
 }
+}// namespace AT
