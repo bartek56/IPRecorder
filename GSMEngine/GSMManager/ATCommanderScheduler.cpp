@@ -1,20 +1,28 @@
-#include "spdlog/spdlog.h"
-#include "Utils.hpp"
 #include "ATCommanderScheduler.hpp"
-
 #include "ATConfig.hpp"
+#include "Utils.hpp"
+#include "spdlog/spdlog.h"
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <thread>
+
+
 namespace AT
 {
-ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
+ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port), atCommandManagerIsRunning(false)
 {
-    receivedCommands.reserve(20);
+    receivedCommands.reserve(maxReceivedCommands);
     serial.setReadEvent(
             [&](const std::string &msg)
             {
                 SPDLOG_TRACE("new AT message: {}", msg);
-                std::lock_guard<std::mutex> lk(receivedCommandsMutex);
+                const std::lock_guard<std::mutex> lockReceivedCommads(receivedCommandsMutex);
                 isNewMsgFromAt = true;
-                receivedCommands.push_back(ATResponse(std::chrono::steady_clock::now(), msg));
+                receivedCommands.emplace_back(std::chrono::steady_clock::now(), msg);
                 cvATReceiver.notify_one();
             });
 
@@ -29,18 +37,22 @@ bool ATCommanderScheduler::setConfigATE0()
     serial.sendMessage(ATE0);
     std::string lastMessage;
     if(!getLastMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
+    {
         return false;
+    }
 
     if(lastMessage.find("OK") != std::string::npos)
     {
         // it was set on the previous session
         return true;
     }
-    else if(lastMessage.find(ATE0) != std::string::npos)
+    if(lastMessage.find(ATE0) != std::string::npos)
     {
         // std::cout << "it is first setting, get next message" << std::endl;
         if(!getLastMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
+        {
             return false;
+        }
 
         if(lastMessage.find("OK") != std::string::npos)
         {
@@ -54,7 +66,7 @@ bool ATCommanderScheduler::setConfigATE0()
 
 bool ATCommanderScheduler::sendSync()
 {
-    serial.sendMessage(AT_SYNC);
+    serial.sendMessage(std::string(AT_SYNC));
     if(!waitForSyncConfirm("OK"))
     {
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
@@ -73,7 +85,7 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
 {
     SPDLOG_TRACE("getLastMessageWithTimeout {}ms", miliSec);
 
-    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
+    std::unique_lock<std::mutex> lockReceivedCommands(receivedCommandsMutex);
 
     if(!receivedCommands.empty())
     {
@@ -85,7 +97,7 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
     SPDLOG_TRACE("Message queue is empty, waiting for new meesage");
 
     isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
         SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
@@ -112,7 +124,7 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
 std::string ATCommanderScheduler::getOldestMessage()
 {
     SPDLOG_TRACE("getOldestMessage");
-    std::lock_guard lk(receivedCommandsMutex);
+    const std::lock_guard lockReceivedCommands(receivedCommandsMutex);
     auto receivedCommand = receivedCommands.front();
     auto msg = receivedCommand.command;
     receivedCommands.erase(receivedCommands.begin());
@@ -122,8 +134,8 @@ std::string ATCommanderScheduler::getOldestMessage()
 bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg)
 {
     SPDLOG_TRACE("getOldestMessageWithTimeout");
-    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
-    if(receivedCommands.size() > 0)
+    std::unique_lock<std::mutex> lockReceivedCommands(receivedCommandsMutex);
+    if(!receivedCommands.empty())
     {
         msg = receivedCommands.front().command;
         receivedCommands.erase(receivedCommands.begin());
@@ -132,7 +144,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     }
     SPDLOG_TRACE("wait for new AT message");
     isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
         SPDLOG_ERROR("wait for the oldest message timeout: {}ms", miliSec);
@@ -142,7 +154,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     heartBeatRefresh();
     SPDLOG_TRACE("new message was arrived");
 
-    if(receivedCommands.size() > 0)
+    if(!receivedCommands.empty())
     {
         msg = receivedCommands.front().command;
         receivedCommands.erase(receivedCommands.begin());
@@ -167,7 +179,7 @@ bool ATCommanderScheduler::waitForConfirm(const std::string &msg,
 bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg)
 {
     SPDLOG_TRACE("waitForSyncConfirm: msg: {}", msg);
-    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
+    std::unique_lock<std::mutex> lockReceivedCommands(receivedCommandsMutex);
 
     for(auto it = receivedCommands.rbegin(); it != receivedCommands.rend(); ++it)
     {
@@ -184,7 +196,7 @@ bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg)
     auto endPt = startPt;
     SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
     isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lk, std::chrono::milliseconds(k_waitForConfirmTimeout), [this]() { return isNewMsgFromAt; });
+    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(k_waitForConfirmTimeout), [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
         SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, k_waitForConfirmTimeout);
@@ -212,7 +224,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
                                                  const uint32_t &miliSec)
 {
     SPDLOG_TRACE("waitForLastMessageTimeout: msg: {}, timeout: {}ms", msg, miliSec);
-    std::unique_lock<std::mutex> lk(receivedCommandsMutex);
+    std::unique_lock<std::mutex> lockReceivedCommands(receivedCommandsMutex);
 
     for(auto it = receivedCommands.rbegin(); it != receivedCommands.rend(); ++it)
     {
@@ -236,7 +248,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
         SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
         auto numberOfMsg = receivedCommands.size();
         isNewMsgFromAt = false;
-        cvATReceiver.wait_for(lk, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+        cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
         {
             SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);

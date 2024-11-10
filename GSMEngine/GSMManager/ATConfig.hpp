@@ -3,7 +3,9 @@
 
 #include <vector>
 #include <string>
+#include <string_view>
 #include <cstdint>
+
 
 #if SIMULATOR == 1
 static const std::vector<std::string> k_defaultConfig{"AT", "AT1", "AT2"};
@@ -17,7 +19,7 @@ static constexpr uint32_t k_waitForMessageTimeout = 8000;
 static constexpr uint32_t k_waitForConfirmTimeout = 2000;
 #endif
 
-static constexpr char AT_SYNC [] = "AT";
+static constexpr std::string_view AT_SYNC = "AT";
 static constexpr char CALLING [] = "+CLIP:";
 static constexpr char SMS_RESPONSE [] = "+CMT:";
 static constexpr char AT_SMS_REQUEST[] = "AT+CMGS";

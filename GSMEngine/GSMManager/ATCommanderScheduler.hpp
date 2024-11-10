@@ -107,6 +107,7 @@ private:
     bool isNewMsgFromAt = false;
 
     // received AT command
+    static constexpr int maxReceivedCommands = 20;
     std::vector<ATResponse> receivedCommands;
     std::mutex receivedCommandsMutex;
     std::condition_variable cvATReceiver;
