@@ -22,7 +22,7 @@ public:
     Serial &operator=(Serial&&) = delete;
     ~Serial();
 
-    void setReadEvent(std::function<void(std::string&)> cb);
+    void setReadEvent(std::function<void(std::string&)>&& readEventCb);
 
     void sendMessage(const std::string &message);
     void sendChar(const char &message);
@@ -33,7 +33,11 @@ private:
     static constexpr size_t k_sleepTimems = 100;
     static constexpr size_t k_activeTimeus = k_activeTimems * 1000;
     static constexpr size_t k_sleepTimeus = k_sleepTimems * 1000;
-    int fd=-1;
+    static constexpr int k_CR = 13;
+    static constexpr int k_LF = 10;
+
+
+    int fd;
     std::vector<std::string> m_messagesWriteQueue;
 
     std::mutex serialMutex;
@@ -45,6 +49,8 @@ private:
     std::unique_ptr<std::thread> receiver;
     std::unique_ptr<std::thread> sender;
     std::function<void(std::string&)> readEvent;
+
+    std::array<char, k_bufferSize> buffer;
 
     void sendThread();
     void readThread();

@@ -95,11 +95,11 @@ private:
     bool getLastMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     std::string getOldestMessage();
     bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
-    bool waitForMessage(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint);
-    bool waitForConfirm(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint);
+    bool waitForMessage(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint);
+    bool waitForConfirm(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint);
     bool waitForSyncConfirm(const std::string &msg);
     /// TODO refactor it/ printLog and timePoint should be get from another place - constexpr if
-    bool waitForMessageTimeout(const std::string &msg, const std::chrono::steady_clock::time_point &timePoint,
+    bool waitForMessageTimeout(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint,
                                const uint32_t &sec);
 
     // --------------------------------------------

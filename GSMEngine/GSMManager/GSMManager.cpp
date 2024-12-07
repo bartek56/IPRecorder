@@ -1,6 +1,9 @@
+#include "ATCommanderScheduler.hpp"
+#include "ATConfig.hpp"
 #include "GSMManager.hpp"
 #include "spdlog/spdlog.h"
-#include "ATConfig.hpp"
+#include <string>
+#include <string_view>
 
 GSMManager::GSMManager(std::string_view port) : atCommander(port)
 {
@@ -60,9 +63,9 @@ bool GSMManager::setDefaultConfig()
     };
 
     bool result = true;
-    for(const auto &it : k_defaultConfig)
+    for(const auto &config : k_defaultConfig)
     {
-        result &= setConfig(it);
+        result &= setConfig(config);
     }
 
     return result;

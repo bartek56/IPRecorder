@@ -17,4 +17,11 @@ namespace utils
         vec.push_back(s.substr(newPos, pos));
         return vec;
     }
+
+    int charToInt(char c)
+    {
+        auto temp = static_cast<unsigned char>(c);
+        return static_cast<int>(temp);
+    }
+
 }// namespace utils

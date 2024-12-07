@@ -2,6 +2,7 @@
 #include "ATConfig.hpp"
 #include "Utils.hpp"
 #include "spdlog/spdlog.h"
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -9,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 
 
 namespace AT
@@ -164,13 +166,13 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     return false;
 }
 
-bool ATCommanderScheduler::waitForMessage(const std::string &msg,
+bool ATCommanderScheduler::waitForMessage(std::string_view msg,
                                           const std::chrono::steady_clock::time_point &timePoint)
 {
     return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout);
 }
 
-bool ATCommanderScheduler::waitForConfirm(const std::string &msg,
+bool ATCommanderScheduler::waitForConfirm(std::string_view msg,
                                           const std::chrono::steady_clock::time_point &timePoint)
 {
     return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout);
@@ -219,7 +221,7 @@ bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg)
     return false;
 }
 
-bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
+bool ATCommanderScheduler::waitForMessageTimeout(std::string_view msg,
                                                  const std::chrono::steady_clock::time_point &timePoint,
                                                  const uint32_t &miliSec)
 {
@@ -246,7 +248,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
     while(std::chrono::duration_cast<std::chrono::milliseconds>(endPt - startPt).count() < miliSec)
     {
         SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
-        auto numberOfMsg = receivedCommands.size();
+        auto numberOfMsg = static_cast<int64_t>(receivedCommands.size());
         isNewMsgFromAt = false;
         cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
@@ -260,7 +262,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
 
         auto result =
                 std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
-                             [&msg](ATResponse atReponse) { return atReponse.command.find(msg) != std::string::npos; });
+                             [&msg](const ATResponse& atReponse) { return atReponse.command.find(msg) != std::string::npos; });
 
         if(result != receivedCommands.end())
         {
@@ -268,10 +270,7 @@ bool ATCommanderScheduler::waitForMessageTimeout(const std::string &msg,
             receivedCommands.erase(result);
             return true;
         }
-        else
-        {
-            SPDLOG_TRACE("New message is still not as expected");
-        }
+        SPDLOG_TRACE("New message is still not as expected");
 
         endPt = std::chrono::steady_clock::now();
     }
@@ -321,9 +320,9 @@ void ATCommanderScheduler::atCommandManager()
         }
 
         // Request config to GSM
-        if(atRequestsQueue.size() > 0 && receivedCommands.empty())
+        if(!atRequestsQueue.empty() && receivedCommands.empty())
         {
-            while(atRequestsQueue.size() > 0)
+            while(!atRequestsQueue.empty())
             {
                 configProcessing();
             }
@@ -331,9 +330,9 @@ void ATCommanderScheduler::atCommandManager()
         }
 
         // Request SMS to GSM
-        if(atSmsRequestQueue.size() > 0 && receivedCommands.empty())
+        if(!atSmsRequestQueue.empty() && receivedCommands.empty())
         {
-            while(atSmsRequestQueue.size() > 0)
+            while(!atSmsRequestQueue.empty())
             {
                 smsRequestProcessing();
             }
@@ -369,7 +368,7 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
     // get next message from the queue (text of SMS)
     std::string msgSms;
 
-    bool result = getOldestMessageWithTimeout(k_waitForConfirmTimeout, msgSms);
+    const bool result = getOldestMessageWithTimeout(k_waitForConfirmTimeout, msgSms);
     if(!result)
     {
         SPDLOG_ERROR("Failed to get SMS message");
@@ -378,7 +377,7 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
     SPDLOG_INFO("new SMS text: {}", msgSms);
     sms.msg = msgSms.substr(0, msgSms.size() - 2);
     {
-        std::lock_guard<std::mutex> lc(smsMutex);
+        const std::lock_guard<std::mutex> lockSmsMutex(smsMutex);
         receivedSmses.push(std::move(sms));
     }
 }
@@ -394,20 +393,20 @@ void ATCommanderScheduler::callingProcessing(const std::string &msg)
 
     ATRequest request = ATRequest();
     request.request = "ATH";
-    request.responsexpected.push_back("NO CARRIER");
-    request.responsexpected.push_back("OK");
+    request.responsexpected.emplace_back("NO CARRIER");
+    request.responsexpected.emplace_back("OK");
     {
-        std::lock_guard lock(atRequestsMutex);
+        const std::lock_guard lockRequestsMutex(atRequestsMutex);
         atRequestsQueue.push(request);
     }
-    calls.push(Call(number));
+    calls.emplace(number);
 }
 
 void ATCommanderScheduler::configProcessing()
 {
     ATRequest lastTask;
     {
-        std::lock_guard lock(atRequestsMutex);
+        const std::lock_guard lockRequestsMutex(atRequestsMutex);
         lastTask = atRequestsQueue.front();
         atRequestsQueue.pop();
     }
@@ -429,17 +428,17 @@ void ATCommanderScheduler::smsRequestProcessing()
 {
     SmsRequest sms;
     {
-        std::lock_guard lock(atSmsRequestMutex);
+        const std::lock_guard lockRequestsMutex(atSmsRequestMutex);
         sms = atSmsRequestQueue.front();
         atSmsRequestQueue.pop();
     }
     SPDLOG_DEBUG("Sending SMS: \"{}\" to {}", sms.message, sms.number);
     const std::string sign = "=\"";
-    std::string command = AT_SMS_REQUEST + sign + sms.number + "\"";
+    const std::string command = std::string(AT_SMS_REQUEST) + sign + sms.number + "\"";
 
     auto now = std::chrono::steady_clock::now();
     serial.sendMessage(command);
-    if(!waitForMessage(">", now))
+    if(!waitForMessage(SMS_INPUT, now))
     {
         SPDLOG_ERROR("msg:> was not arrived");
         return;

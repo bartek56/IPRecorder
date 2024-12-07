@@ -1,17 +1,31 @@
 #include "Serial.hpp"
-
-#include <fcntl.h>
-#include <sys/select.h>
-#include <termios.h>
-#include <unistd.h>
-
-#include <cstring>
-#include <array>
-#include <mutex>
 #include "spdlog/spdlog.h"
 
+#include "Utils.hpp"
 
-Serial::Serial(std::string_view serialPort) : serialRunning(true)
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <fcntl.h>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <sys/select.h>
+#include <sys/types.h>
+//#include <sys/time.h>
+#include <termios.h>
+#include <thread>
+#include <unistd.h>
+#include <utility>
+
+
+
+Serial::Serial(std::string_view serialPort) : fd(-1), serialRunning(false), buffer()
 {
     fd = open(serialPort.begin(), O_RDWR);
     if(fd == -1)
@@ -21,7 +35,7 @@ Serial::Serial(std::string_view serialPort) : serialRunning(true)
     }
 
     // serial port configuration
-    struct termios options;
+    struct termios options{};
     tcgetattr(fd, &options);
     cfsetispeed(&options, B19200);
     cfsetospeed(&options, B19200);
@@ -36,8 +50,9 @@ Serial::Serial(std::string_view serialPort) : serialRunning(true)
 
     // non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
-    Serial::serialRunning.store(true);
+    serialRunning.store(true);
 
+    std::fill(buffer.begin(), buffer.end(), 0);
     receiver = std::make_unique<std::thread>([this]() { this->readThread(); });
     sender = std::make_unique<std::thread>([this]() { this->sendThread(); });
 }
@@ -53,9 +68,6 @@ Serial::~Serial()
 
 void Serial::readThread()
 {
-    std::array<char, k_bufferSize> buffer;
-    std::fill(buffer.begin(), buffer.end(), 0);
-
     fd_set read_fds;
 
     // number of read bytes from serial on one sequence
@@ -67,7 +79,7 @@ void Serial::readThread()
     // size of message with end CRLF
     uint32_t sizeOfMessage = 0;
     char *startOfMessage = nullptr;
-    struct timeval timeout;
+    struct timeval timeout{};
     timeout.tv_sec = 0;
     timeout.tv_usec = k_activeTimeus;
 
@@ -77,14 +89,14 @@ void Serial::readThread()
         FD_SET(fd, &read_fds);
 
         // wait for data
-        int result = select(fd + 1, &read_fds, NULL, NULL, &timeout);
+        const int result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
         if(result == -1)
         {
             SPDLOG_ERROR("error with select()");
             break;
         }
         // timeout but some data was saved in buffer
-        else if(result == 0 && sizeOfMessage > 0)
+        if(result == 0 && sizeOfMessage > 0)
         {
             SPDLOG_TRACE("timeout");
             newMessageNotify(startOfMessage, sizeOfMessage);
@@ -98,7 +110,7 @@ void Serial::readThread()
             if(FD_ISSET(fd, &read_fds))
             {
                 {
-                    std::lock_guard<std::mutex> lock(serialMutex);
+                    const std::lock_guard<std::mutex> lock(serialMutex);
                     bytesRead = read(fd, buffer.data() + totalBytesRead, k_bufferSize - totalBytesRead - 1);
                 }
 
@@ -108,18 +120,20 @@ void Serial::readThread()
                     startOfMessage = buffer.data();
                     uint32_t sizeOfPreviousMessage = totalBytesRead - bytesRead;
                     if(sizeOfPreviousMessage > 0)
+                    {
                         sizeOfPreviousMessage -= 1;
+                    }
 
                     for(uint32_t i = sizeOfPreviousMessage; i < (totalBytesRead - 1); i++)
                     {
                         sizeOfMessage++;
 
-                        auto asciValue1 = int(buffer[i]);
-                        auto asciValue2 = int(buffer[i + 1]);
+                        const auto asciValue1 = utils::charToInt(buffer[i]);
+                        const auto asciValue2 = utils::charToInt(buffer[i + 1]);
                         SPDLOG_TRACE("byte {} {}", i, asciValue1);
 
 
-                        if(asciValue1 == 13 && asciValue2 == 10)
+                        if(asciValue1 == k_CR && asciValue2 == k_LF)
                         {
                             SPDLOG_TRACE("byte {} {} it is CRLF", i, asciValue2);
                             if(i == 0)
@@ -131,7 +145,7 @@ void Serial::readThread()
                             }
                             i++;
                             sizeOfMessage++;
-                            if(int(buffer[i + 1]) == 13 && int(buffer[i + 2]) == 10)
+                            if(utils::charToInt(buffer[i + 1]) == k_CR && utils::charToInt(buffer[i + 2]) == k_LF)
                             {
                                 SPDLOG_TRACE("skip CRLF duplicate");
                                 // skip CRLF duplicate
@@ -156,9 +170,9 @@ void Serial::readThread()
     SPDLOG_DEBUG("receiver closed");
 }
 
-void Serial::setReadEvent(std::function<void(std::string &)> cb)
+void Serial::setReadEvent(std::function<void(std::string &)>&& readEventCb)
 {
-    readEvent = cb;
+    readEvent = std::move(readEventCb);
 }
 
 void Serial::newMessageNotify(char *buffer, const uint32_t &sizeOfMessage)
@@ -166,7 +180,9 @@ void Serial::newMessageNotify(char *buffer, const uint32_t &sizeOfMessage)
     auto newMessage = std::string(buffer, sizeOfMessage);
     SPDLOG_TRACE("new message {}", newMessage);
     if(readEvent)
+    {
         readEvent(newMessage);
+    }
 }
 
 void Serial::sendThread()
@@ -174,24 +190,23 @@ void Serial::sendThread()
     while(serialRunning.load())
     {
         {
-            std::unique_lock<std::mutex> lk(messagesWriteMutex);
-            sendCondition.wait_for(lk, std::chrono::milliseconds(k_activeTimems),
+            std::unique_lock<std::mutex> lockMessageWrite(messagesWriteMutex);
+            sendCondition.wait_for(lockMessageWrite, std::chrono::milliseconds(k_activeTimems),
                                    [this]() { return isNewMessageToSend; });
 
-            if(m_messagesWriteQueue.size() == 0)
+            if(m_messagesWriteQueue.empty())
             {
                 isNewMessageToSend = false;
                 continue;
             }
             auto newMessage = m_messagesWriteQueue.begin();
-            int bytesWritten = 0;
+            ssize_t bytesWritten = 0;
             {
-                std::lock_guard<std::mutex> lockSerial(serialMutex);
+                const std::lock_guard<std::mutex> lockSerial(serialMutex);
                 // send char
                 if(newMessage->size() == 2)
                 {
-                    auto ptr = static_cast<char>(std::stoi(newMessage->c_str()));
-                    bytesWritten = write(fd, &ptr, 1);
+                    bytesWritten = write(fd, newMessage->c_str(), 1);
                 }
                 else
                 {
@@ -217,7 +232,7 @@ void Serial::sendThread()
 
 void Serial::sendMessage(const std::string &message)
 {
-    std::lock_guard<std::mutex> lock(messagesWriteMutex);
+    const std::lock_guard<std::mutex> lock(messagesWriteMutex);
     m_messagesWriteQueue.push_back(message + "\r");
     isNewMessageToSend = true;
     sendCondition.notify_one();
@@ -225,7 +240,7 @@ void Serial::sendMessage(const std::string &message)
 
 void Serial::sendChar(const char &message)
 {
-    std::lock_guard<std::mutex> lock(messagesWriteMutex);
+    const std::lock_guard<std::mutex> lock(messagesWriteMutex);
     m_messagesWriteQueue.push_back(std::to_string(message));
     isNewMessageToSend = true;
     sendCondition.notify_one();

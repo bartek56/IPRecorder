@@ -20,15 +20,15 @@ static constexpr uint32_t k_waitForConfirmTimeout = 2000;
 #endif
 
 static constexpr std::string_view AT_SYNC = "AT";
-static constexpr char CALLING [] = "+CLIP:";
-static constexpr char SMS_RESPONSE [] = "+CMT:";
-static constexpr char AT_SMS_REQUEST[] = "AT+CMGS";
-static constexpr char SMS_REQUEST[] = "+CMGS";
+static constexpr std::string_view CALLING = "+CLIP:";
+static constexpr std::string_view SMS_RESPONSE = "+CMT:";
+static constexpr std::string_view AT_SMS_REQUEST = "AT+CMGS";
+static constexpr std::string_view SMS_REQUEST = "+CMGS";
 
-static constexpr char ERROR [] = "ERROR";
-static constexpr char RING [] = "RING";
-static constexpr char EOL[] = "\r\n";
+static constexpr std::string_view ERROR = "ERROR";
+static constexpr std::string_view RING = "RING";
 static constexpr char SUB = 0x1A;
+static constexpr std::string_view SMS_INPUT = ">";
 
 
 #endif
