@@ -17,7 +17,6 @@
 #include <string_view>
 #include <sys/select.h>
 #include <sys/types.h>
-//#include <sys/time.h>
 #include <termios.h>
 #include <thread>
 #include <unistd.h>

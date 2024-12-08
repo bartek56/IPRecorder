@@ -1,26 +1,30 @@
 #include "Utils.hpp"
 
+#include <cstddef>
+#include <string>
+#include <vector>
+
 namespace utils
 {
-    std::vector<std::string> split(const std::string &s, const std::string &delimiter)
+    std::vector<std::string> split(const std::string &text, const std::string &delimiter)
     {
         std::vector<std::string> vec;
-        size_t pos = 0;
-        size_t newPos = 0;
-        std::string token;
-        while((pos = s.find(delimiter, newPos)) != std::string::npos)
+        size_t positionOfNextDelimiter = 0;
+        size_t positionOfStartSplit = 0;
+        std::string partOfString;
+        while((positionOfNextDelimiter = text.find(delimiter, positionOfStartSplit)) != std::string::npos)
         {
-            token = s.substr(newPos, pos - newPos);
-            vec.push_back(token);
-            newPos = pos + delimiter.length();
+            partOfString = text.substr(positionOfStartSplit, positionOfNextDelimiter - positionOfStartSplit);
+            vec.push_back(partOfString);
+            positionOfStartSplit = positionOfNextDelimiter + delimiter.length();
         }
-        vec.push_back(s.substr(newPos, pos));
+        vec.push_back(text.substr(positionOfStartSplit, positionOfNextDelimiter));
         return vec;
     }
 
-    int charToInt(char c)
+    int charToInt(char sign)
     {
-        auto temp = static_cast<unsigned char>(c);
+        auto temp = static_cast<unsigned char>(sign);
         return static_cast<int>(temp);
     }
 
