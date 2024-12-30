@@ -23,7 +23,6 @@
 #include <utility>
 
 
-
 Serial::Serial(std::string_view serialPort) : fd(-1), serialRunning(false), buffer()
 {
     fd = open(serialPort.begin(), O_RDWR);
@@ -34,7 +33,9 @@ Serial::Serial(std::string_view serialPort) : fd(-1), serialRunning(false), buff
     }
 
     // serial port configuration
-    struct termios options{};
+    struct termios options
+    {
+    };
     tcgetattr(fd, &options);
     cfsetispeed(&options, B19200);
     cfsetospeed(&options, B19200);
@@ -78,7 +79,9 @@ void Serial::readThread()
     // size of message with end CRLF
     uint32_t sizeOfMessage = 0;
     char *startOfMessage = nullptr;
-    struct timeval timeout{};
+    struct timeval timeout
+    {
+    };
     timeout.tv_sec = 0;
     timeout.tv_usec = k_activeTimeus;
 
@@ -169,7 +172,7 @@ void Serial::readThread()
     SPDLOG_DEBUG("receiver closed");
 }
 
-void Serial::setReadEvent(std::function<void(std::string &)>&& readEventCb)
+void Serial::setReadEvent(std::function<void(std::string &)> &&readEventCb)
 {
     readEvent = std::move(readEventCb);
 }
@@ -205,7 +208,8 @@ void Serial::sendThread()
                 // send char
                 if(newMessage->size() == 2)
                 {
-                    bytesWritten = write(fd, newMessage->c_str(), 1);
+                    auto ptr = static_cast<char>(std::stoi(newMessage->c_str()));
+                    bytesWritten = write(fd, &ptr, 1);
                 }
                 else
                 {
