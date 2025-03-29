@@ -18,6 +18,17 @@ namespace AT
 ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port), atCommandManagerIsRunning(false)
 {
     receivedCommands.reserve(maxReceivedCommands);
+
+    atRequestHandlerMap.insert(
+            {{AT_Command::SMS_RECEIVING_INFO,
+              std::bind(&ATCommanderScheduler::SMSInfoHandler, this, statesSwitching, data, std::placeholders::_1)},
+             {AT_Command::SMS_RECEIVING_TEXT,
+              std::bind(&ATCommanderScheduler::SMSTextHandler, this, statesSwitching, data, std::placeholders::_1)},
+             {AT_Command::CALLING,
+              std::bind(&ATCommanderScheduler::CallingHandler, this, statesSwitching, data, std::placeholders::_1)},
+             {AT_Command::RING,
+              std::bind(&ATCommanderScheduler::RingHandler, this, statesSwitching, data, std::placeholders::_1)}});
+
     serial.setReadEvent(
             [&](const std::string &msg)
             {
@@ -40,6 +51,7 @@ bool ATCommanderScheduler::setConfigATE0()
     std::string lastMessage;
     if(!getLastMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
     {
+        SPDLOG_ERROR("Error 1");
         return false;
     }
 
@@ -53,6 +65,7 @@ bool ATCommanderScheduler::setConfigATE0()
         // std::cout << "it is first setting, get next message" << std::endl;
         if(!getLastMessageWithTimeout(k_waitForConfirmTimeout, lastMessage))
         {
+            SPDLOG_ERROR("Error 2");
             return false;
         }
 
@@ -62,7 +75,7 @@ bool ATCommanderScheduler::setConfigATE0()
         }
     }
 
-    SPDLOG_ERROR("setConfigATE0 failed!");
+    SPDLOG_ERROR("setConfig ATE0 failed!");
     return false;
 }
 
@@ -99,7 +112,8 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
     SPDLOG_TRACE("Message queue is empty, waiting for new meesage");
 
     isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec),
+                          [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
         SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
@@ -146,7 +160,8 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     }
     SPDLOG_TRACE("wait for new AT message");
     isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec),
+                          [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
         SPDLOG_ERROR("wait for the oldest message timeout: {}ms", miliSec);
@@ -166,14 +181,12 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     return false;
 }
 
-bool ATCommanderScheduler::waitForMessage(std::string_view msg,
-                                          const std::chrono::steady_clock::time_point &timePoint)
+bool ATCommanderScheduler::waitForMessage(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint)
 {
     return waitForMessageTimeout(msg, timePoint, k_waitForMessageTimeout);
 }
 
-bool ATCommanderScheduler::waitForConfirm(std::string_view msg,
-                                          const std::chrono::steady_clock::time_point &timePoint)
+bool ATCommanderScheduler::waitForConfirm(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint)
 {
     return waitForMessageTimeout(msg, timePoint, k_waitForConfirmTimeout);
 }
@@ -198,7 +211,8 @@ bool ATCommanderScheduler::waitForSyncConfirm(const std::string &msg)
     auto endPt = startPt;
     SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
     isNewMsgFromAt = false;
-    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(k_waitForConfirmTimeout), [this]() { return isNewMsgFromAt; });
+    cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(k_waitForConfirmTimeout),
+                          [this]() { return isNewMsgFromAt; });
     if(!isNewMsgFromAt)
     {
         SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, k_waitForConfirmTimeout);
@@ -250,7 +264,8 @@ bool ATCommanderScheduler::waitForMessageTimeout(std::string_view msg,
         SPDLOG_TRACE("cycle: wait for new AT message: \"{}\"", msg);
         auto numberOfMsg = static_cast<int64_t>(receivedCommands.size());
         isNewMsgFromAt = false;
-        cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec), [this]() { return isNewMsgFromAt; });
+        cvATReceiver.wait_for(lockReceivedCommands, std::chrono::milliseconds(miliSec),
+                              [this]() { return isNewMsgFromAt; });
         if(!isNewMsgFromAt)
         {
             SPDLOG_ERROR("wait for AT message: {} timeout: {}ms", msg, miliSec);
@@ -260,9 +275,9 @@ bool ATCommanderScheduler::waitForMessageTimeout(std::string_view msg,
         heartBeatRefresh();
         SPDLOG_TRACE("new message was arrived");
 
-        auto result =
-                std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
-                             [&msg](const ATResponse& atReponse) { return atReponse.command.find(msg) != std::string::npos; });
+        auto result = std::find_if(receivedCommands.begin() + numberOfMsg, receivedCommands.end(),
+                                   [&msg](const ATResponse &atReponse)
+                                   { return atReponse.command.find(msg) != std::string::npos; });
 
         if(result != receivedCommands.end())
         {
@@ -278,6 +293,19 @@ bool ATCommanderScheduler::waitForMessageTimeout(std::string_view msg,
     return false;
 }
 
+AT_Command ATCommanderScheduler::translateCommand(const std::string &command)
+{
+    for(const auto &it : atResponsesDict)
+    {
+        if(command.find(it.second) != std::string::npos)
+        {
+            return it.first;
+        }
+    }
+    return AT_Command::UNKNOWN;
+}
+
+
 void ATCommanderScheduler::atCommandManager()
 {
     if(!setConfigATE0())
@@ -291,32 +319,20 @@ void ATCommanderScheduler::atCommandManager()
         // Requests, status etc from GSM
         while(!receivedCommands.empty())
         {
-            std::string msg = getOldestMessage();
+            auto msg = getOldestMessage();
             SPDLOG_DEBUG("AT response/msg from receivedCommands: {}", msg);
-
-            if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
+            auto typeOfRequest = translateCommand(msg);
+            if((statesSwitching.getState() == State::SMS_RECEIVING) and (typeOfRequest == AT_Command::UNKNOWN))
             {
-                smsProcessing(msg);
-                continue;
+                atRequestHandlerMap[AT_Command::SMS_RECEIVING_TEXT](msg);
             }
 
-            if(msg.find(RING) != std::string::npos)
+            if(typeOfRequest == AT_Command::UNKNOWN)
             {
-                SPDLOG_INFO("RING !!!");
+                SPDLOG_WARN("Unknown type of message! - {}", msg);
                 continue;
             }
-            if(msg.find(CALLING) != std::string::npos)
-            {
-                callingProcessing(msg);
-                continue;
-            }
-            if(msg.find(ERROR) != std::string::npos)
-            {
-                SPDLOG_ERROR("ERROR !!!");
-                continue;
-            }
-
-            SPDLOG_WARN("Message \"{}\" was skipped !", msg);
+            atRequestHandlerMap[typeOfRequest](msg);
         }
 
         // Request config to GSM
@@ -324,6 +340,7 @@ void ATCommanderScheduler::atCommandManager()
         {
             while(!atRequestsQueue.empty())
             {
+                // state config
                 configProcessing();
             }
             atRequestCv.notify_one();
@@ -334,6 +351,7 @@ void ATCommanderScheduler::atCommandManager()
         {
             while(!atSmsRequestQueue.empty())
             {
+                // state SMS request
                 smsRequestProcessing();
             }
             atSmsRequestCv.notify_one();
@@ -350,7 +368,8 @@ void ATCommanderScheduler::atCommandManager()
     SPDLOG_DEBUG("AT comnand manager thread closed");
 }
 
-void ATCommanderScheduler::smsProcessing(const std::string &msg)
+
+void ATCommanderScheduler::SMSInfoHandler(StatesSwitching &switching, SchedulerData &data, const std::string &msg)
 {
     const auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
     auto splitted = utils::split(msgWithoutCRLF, ",,");
@@ -359,30 +378,30 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
     splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
 
     auto number = utils::split(splitted[0], " ")[1];
-    Sms sms;
-    sms.number = number;
+    data.sms.number = number;
     auto date = splitted[1];
-    sms.dateAndTime = date;
+    data.sms.dateAndTime = date;
     SPDLOG_INFO("new SMS info: {} {}", date, number);
-
-    // get next message from the queue (text of SMS)
-    std::string msgSms;
-
-    const bool result = getOldestMessageWithTimeout(k_waitForConfirmTimeout, msgSms);
-    if(!result)
-    {
-        SPDLOG_ERROR("Failed to get SMS message");
-        return;
-    }
-    SPDLOG_INFO("new SMS text: {}", msgSms);
-    sms.msg = msgSms.substr(0, msgSms.size() - 2);
-    {
-        const std::lock_guard<std::mutex> lockSmsMutex(smsMutex);
-        receivedSmses.push(std::move(sms));
-    }
+    switching.changeState(State::SMS_RECEIVING);
 }
 
-void ATCommanderScheduler::callingProcessing(const std::string &msg)
+void ATCommanderScheduler::SMSTextHandler(StatesSwitching &switching, SchedulerData &data, const std::string &msg)
+{
+    SPDLOG_INFO("SMS text: {}", msg);
+
+    data.sms.msg = msg.substr(0, msg.size() - 2);
+    {
+        /// TODO receivedSMS move from here
+        const std::lock_guard<std::mutex> lockSmsMutex(smsMutex);
+        receivedSmses.push(data.sms);
+        data.sms = {};
+    }
+    /// TODO state SMS done
+    switching.changeState(State::IDLE);
+}
+
+
+void ATCommanderScheduler::CallingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &msg)
 {
     // +CLIP: "+48791942336",145,,,"",0
     auto splitted = utils::split(msg, ": ");
@@ -401,6 +420,11 @@ void ATCommanderScheduler::callingProcessing(const std::string &msg)
     }
     calls.emplace(number);
 }
+
+void ATCommanderScheduler::RingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &msg)
+{
+}
+
 
 void ATCommanderScheduler::configProcessing()
 {
@@ -426,6 +450,14 @@ void ATCommanderScheduler::configProcessing()
 
 void ATCommanderScheduler::smsRequestProcessing()
 {
+    if(statesSwitching.getState() != State::IDLE)
+    {
+        SPDLOG_ERROR("SMS can not be send. It's not IDLE state");
+        return;
+    }
+
+    statesSwitching.changeState(State::SMS_SENDING);
+
     SmsRequest sms;
     {
         const std::lock_guard lockRequestsMutex(atSmsRequestMutex);
@@ -440,26 +472,28 @@ void ATCommanderScheduler::smsRequestProcessing()
     serial.sendMessage(command);
     if(!waitForMessage(SMS_INPUT, now))
     {
-        SPDLOG_ERROR("msg:> was not arrived");
+        SPDLOG_ERROR("msg: '>' was not arrived");
         return;
     }
     now = std::chrono::steady_clock::now();
     serial.sendMessage(sms.message);
     serial.sendChar(SUB);
 
+    /*
     if(!waitForMessage(SMS_REQUEST, now))
     {
-        SPDLOG_ERROR("msg:{} was not arrived", SMS_REQUEST);
+        SPDLOG_ERROR("msg: '{}' was not arrived", SMS_REQUEST);
         return;
     }
 
     if(!waitForConfirm("OK", now))
     {
-        SPDLOG_ERROR("msg:OK was not arrived");
+        SPDLOG_ERROR("msg: 'OK' was not arrived");
         return;
     }
 
     SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
+    */
 }
 
 void ATCommanderScheduler::heartBeatRefresh()
@@ -488,4 +522,17 @@ ATCommanderScheduler::~ATCommanderScheduler()
     atCommandManagerIsRunning.store(false);
     atThread->join();
 }
+
+
+void StatesSwitching::changeState(const State newState)
+{
+    state = newState;
+}
+
+State StatesSwitching::getState()
+{
+    return state;
+}
+
+
 }// namespace AT

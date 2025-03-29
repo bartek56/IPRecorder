@@ -22,6 +22,7 @@ endif()
 
 set(LOG_LEVEL 1)
 
+
 if(LOG_LEVEL EQUAL 0)
   add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
   message(STATUS "LOG level is set to TRACE")

@@ -2,10 +2,46 @@
 #define ATCOMMANDERSCHEDULER_HPP
 
 #include "Serial.hpp"
+#include "ATConfig.hpp"
+
 #include <stdexcept>
 #include <queue>
+#include <memory>
+#include <unordered_map>
+
 namespace AT
 {
+
+enum class State : uint16_t
+{
+    IDLE = 0,
+    SMS_RECEIVING,
+    SMS_SENDING,
+    CALL,
+    UNKNOWN
+};
+
+
+enum class AT_Command : uint16_t
+{
+    SMS_RECEIVING_INFO = 0,
+    SMS_RECEIVING_TEXT,
+    CALLING,
+    RING,
+    UNKNOWN
+};
+
+class StatesSwitching
+{
+public:
+    void changeState(const State state);
+    State getState();
+
+private:
+    State state;
+};
+
+
 struct ATResponse
 {
     ATResponse(std::chrono::steady_clock::time_point _timestamp, std::string _command)
@@ -63,6 +99,16 @@ struct Call
     std::string number;
 };
 
+
+struct SchedulerData
+{
+    Sms sms;
+};
+
+struct HSMContext
+{
+};
+
 class ATCommanderScheduler
 {
 public:
@@ -102,6 +148,9 @@ private:
     bool waitForMessageTimeout(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint,
                                const uint32_t &sec);
 
+    AT_Command translateCommand(const std::string &command);
+
+
     // --------------------------------------------
     Serial serial;
     bool isNewMsgFromAt = false;
@@ -116,8 +165,6 @@ private:
     std::unique_ptr<std::thread> atThread;
     void atCommandManager();
     std::atomic<bool> atCommandManagerIsRunning;
-    void smsProcessing(const std::string &msg);
-    void callingProcessing(const std::string &msg);
     void configProcessing();
     void smsRequestProcessing();
 
@@ -125,7 +172,26 @@ private:
     std::chrono::steady_clock::time_point lastRefresh;
     void heartBeatRefresh();
     void heartBeatTick();
+
+    // ATHandlers
+    void SMSInfoHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
+    void SMSTextHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
+    void CallingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
+    void RingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
+
+    StatesSwitching statesSwitching;
+    SchedulerData data;
+
+    std::unordered_map<AT_Command, std::string_view> atResponsesDict{
+            {AT_Command::SMS_RECEIVING_INFO, SMS_RESPONSE},
+            {AT_Command::CALLING, CALLING},
+            {AT_Command::RING, RING},
+    };
+
+    std::unordered_map<AT_Command, std::function<void(const std::string &)>> atRequestHandlerMap;
 };
+
+
 }// namespace AT
 
 #endif// ATCOMMANDERSCHEDULER_HPP
