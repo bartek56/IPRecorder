@@ -2,113 +2,15 @@
 #define ATCOMMANDERSCHEDULER_HPP
 
 #include "Serial.hpp"
+#include "ATTypes.hpp"
 #include "ATConfig.hpp"
+#include "ATHandlers.hpp"
 
-#include <stdexcept>
 #include <queue>
-#include <memory>
-#include <unordered_map>
 
 namespace AT
 {
 
-enum class State : uint16_t
-{
-    IDLE = 0,
-    SMS_RECEIVING,
-    SMS_SENDING,
-    CALL,
-    UNKNOWN
-};
-
-
-enum class AT_Command : uint16_t
-{
-    SMS_RECEIVING_INFO = 0,
-    SMS_RECEIVING_TEXT,
-    SMS_CONFIRM,
-    CALLING,
-    RING,
-    UNKNOWN
-};
-
-class StatesSwitching
-{
-public:
-    void changeState(const State state);
-    State getState();
-
-private:
-    State state{};
-};
-
-
-struct ATResponse
-{
-    ATResponse(std::chrono::steady_clock::time_point _timestamp, std::string _command)
-        : timestamp(_timestamp), command(_command)
-    {
-    }
-    std::chrono::steady_clock::time_point timestamp;
-    std::string command;
-};
-
-struct ATRequest
-{
-    std::string request;
-    std::vector<std::string> responsexpected;
-};
-
-struct SmsRequest
-{
-    SmsRequest()
-    {
-    }
-    SmsRequest(std::string num, std::string msg) : number(num), message(msg)
-    {
-    }
-    std::string number;
-    std::string message;
-};
-
-struct Sms
-{
-    Sms(const std::string &number, const std::string &msg) : number(number), dateAndTime(""), msg(msg)
-    {
-        if(number.find("+48") == std::string::npos)
-            throw std::runtime_error("number doesn't contain polish national prefix");
-    }
-    Sms() : number(""), dateAndTime(""), msg("")
-    {
-    }
-
-    std::string number;
-    std::string dateAndTime;
-    std::string msg;
-};
-
-struct Call
-{
-    Call(std::string _number) : number(_number)
-    {
-    }
-    Call() : number("")
-    {
-    }
-
-    // TODO time point of call std::chrono::system_clock::time_point timePoint;
-    std::string number;
-};
-
-
-struct SchedulerData
-{
-    Sms sms;
-};
-
-struct HSMContext
-{
-};
 
 class ATCommanderScheduler
 {
@@ -174,24 +76,28 @@ private:
     void heartBeatRefresh();
     void heartBeatTick();
 
-    // ATHandlers
-    void SMSInfoHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
-    void SMSConfirmHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
-    void SMSTextHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
-    void CallingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
-    void RingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
-
+    ATHandlers handlers;
     StatesSwitching statesSwitching;
     SchedulerData data;
 
     std::unordered_map<AT_Command, std::string_view> atResponsesDict{
             {AT_Command::SMS_RECEIVING_INFO, SMS_RESPONSE},
-            {AT_Command::SMS_CONFIRM, SMS_CONFIRM},
+            {AT_Command::SMS_SENDING_CONFIRM, SMS_SENDING_CONFIRM},
             {AT_Command::CALLING, CALLING},
             {AT_Command::RING, RING},
+            {AT_Command::OK, OK},
     };
 
-    std::unordered_map<AT_Command, std::function<void(const std::string &)>> atRequestHandlerMap;
+    std::unordered_map<State, std::vector<AT_Command>> atCommandOfState{
+            {State::SMS_RECEIVING, {AT_Command::SMS_RECEIVING_INFO}},
+            {State::SMS_RECEIVING_CONFIRM, {AT_Command::SMS_RECEIVING_INFO}},
+            {State::SMS_SENDING_CONFIRM, {AT_Command::OK}},
+            {State::SMS_SENDING, {AT_Command::SMS_SENDING_CONFIRM}},
+            {State::SMS_SENDING_OK, {AT_Command::OK}},
+    };
+
+    std::unordered_map<AT_Command, std::function<ResultState(const std::string &)>> atRequestHandlerMap;
+    std::queue<std::string> requestsQueue;
 };
 
 

@@ -1,0 +1,1 @@
+/usr/bin/g++ -g CMakeFiles/GSMApp.dir/main.cpp.o -o GSMApp  ../GSMManager/libGSMManager.a ../3rdparty/spdlog/libspdlogd.a -fsanitize=address,undefined 

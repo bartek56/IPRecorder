@@ -1,0 +1,45 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"GSMManagerWrapper/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 24,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "/usr/local/lib/python3.12/dist-packages",
+			"paths" : 
+			[
+				"GSMManagerWrapper/GSMEngine.cpython-312-x86_64-linux-gnu.so"
+			],
+			"targetId" : "GSMEngine::@5d97dd3a0c6be6ebf6bb",
+			"targetIndex" : 1,
+			"type" : "target"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "GSMManagerWrapper",
+		"source" : "GSMManagerWrapper"
+	}
+}

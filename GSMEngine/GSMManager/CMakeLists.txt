@@ -15,6 +15,8 @@ add_library(${PROJECT_NAME} ATConfig.hpp Serial.hpp Serial.cpp
     ATCommanderScheduler.hpp ATCommanderScheduler.cpp
     ATCommander.hpp ATCommander.cpp
     GSMManager.hpp GSMManager.cpp
-    Utils.hpp Utils.cpp)
+    Utils.hpp Utils.cpp
+    ATHandlers.hpp ATHandlers.cpp
+    ATTypes.hpp)
 
 target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} spdlog::spdlog ${SANITIZE_OPTIONS})

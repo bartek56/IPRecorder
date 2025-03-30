@@ -1,0 +1,1 @@
+/usr/bin/g++ -fPIC -g -shared  -o GSMEngine.cpython-312-x86_64-linux-gnu.so CMakeFiles/GSMEngine.dir/GSMManagerWrapper.cpp.o  ../GSMManager/libGSMManager.a ../3rdparty/spdlog/libspdlogd.a -fsanitize=address,undefined 

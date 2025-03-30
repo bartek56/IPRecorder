@@ -1,0 +1,2 @@
+/usr/bin/ar qc libGSMManager.a CMakeFiles/GSMManager.dir/Serial.cpp.o CMakeFiles/GSMManager.dir/ATCommanderScheduler.cpp.o CMakeFiles/GSMManager.dir/ATCommander.cpp.o CMakeFiles/GSMManager.dir/GSMManager.cpp.o CMakeFiles/GSMManager.dir/Utils.cpp.o
+/usr/bin/ranlib libGSMManager.a

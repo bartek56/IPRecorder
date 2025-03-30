@@ -1,0 +1,210 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"projectIndex" : 0,
+					"source" : "."
+				},
+				{
+					"build" : "3rdparty/spdlog",
+					"jsonFile" : "directory-3rdparty.spdlog-Debug-65111269347043178795.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "3rdparty/spdlog",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "3rdparty/pybind11",
+					"jsonFile" : "directory-3rdparty.pybind11-Debug-8e7078dd931024448177.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 2,
+					"source" : "3rdparty/pybind11"
+				},
+				{
+					"build" : "GSMManager",
+					"jsonFile" : "directory-GSMManager-Debug-9236be4af8a1e3455d46.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 3,
+					"source" : "GSMManager",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "GSMManagerWrapper",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-GSMManagerWrapper-Debug-8654aa439bdd6b3b3563.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "GSMManagerWrapper",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "GSMApp",
+					"jsonFile" : "directory-GSMApp-Debug-cb06c7fedde4cf67b3e5.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 4,
+					"source" : "GSMApp",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4
+					],
+					"directoryIndexes" : 
+					[
+						0,
+						4
+					],
+					"name" : "GSMEngine",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						1
+					],
+					"name" : "spdlog",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						2
+					],
+					"name" : "pybind11",
+					"parentIndex" : 0
+				},
+				{
+					"directoryIndexes" : 
+					[
+						3
+					],
+					"name" : "GSMManager",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						5
+					],
+					"name" : "GSMApp",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 5,
+					"id" : "GSMApp::@7ce66024876741a2c29c",
+					"jsonFile" : "target-GSMApp-Debug-bba81e1fac9650acc667.json",
+					"name" : "GSMApp",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "GSMEngine::@5d97dd3a0c6be6ebf6bb",
+					"jsonFile" : "target-GSMEngine-Debug-f637dad44da025a01e7f.json",
+					"name" : "GSMEngine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "GSMManager::@3b00ab7f43e55f570f9c",
+					"jsonFile" : "target-GSMManager-Debug-41bf8d2b51f89e041347.json",
+					"name" : "GSMManager",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "spdlog::@5991afc762563a629097",
+					"jsonFile" : "target-spdlog-Debug-4b76b482df1a002aaf04.json",
+					"name" : "spdlog",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/bartosz/Documents/projects/IPRecorder/GSMEngine/Desktop-Debug",
+		"source" : "/home/bartosz/Documents/projects/IPRecorder/GSMEngine"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}
