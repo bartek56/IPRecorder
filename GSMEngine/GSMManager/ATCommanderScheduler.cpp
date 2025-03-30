@@ -21,13 +21,17 @@ ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
 
     atRequestHandlerMap.insert(
             {{AT_Command::SMS_RECEIVING_INFO,
-              std::bind(&ATCommanderScheduler::SMSInfoHandler, this, statesSwitching, data, std::placeholders::_1)},
+              std::bind(&ATCommanderScheduler::SMSInfoHandler, this, std::ref(statesSwitching), std::ref(data),
+                        std::placeholders::_1)},
+             {AT_Command::SMS_CONFIRM, std::bind(&ATCommanderScheduler::SMSConfirmHandler, this,
+                                                 std::ref(statesSwitching), std::ref(data), std::placeholders::_1)},
              {AT_Command::SMS_RECEIVING_TEXT,
-              std::bind(&ATCommanderScheduler::SMSTextHandler, this, statesSwitching, data, std::placeholders::_1)},
-             {AT_Command::CALLING,
-              std::bind(&ATCommanderScheduler::CallingHandler, this, statesSwitching, data, std::placeholders::_1)},
-             {AT_Command::RING,
-              std::bind(&ATCommanderScheduler::RingHandler, this, statesSwitching, data, std::placeholders::_1)}});
+              std::bind(&ATCommanderScheduler::SMSTextHandler, this, std::ref(statesSwitching), std::ref(data),
+                        std::placeholders::_1)},
+             {AT_Command::CALLING, std::bind(&ATCommanderScheduler::CallingHandler, this, std::ref(statesSwitching),
+                                             std::ref(data), std::placeholders::_1)},
+             {AT_Command::RING, std::bind(&ATCommanderScheduler::RingHandler, this, std::ref(statesSwitching),
+                                          std::ref(data), std::placeholders::_1)}});
 
     serial.setReadEvent(
             [&](const std::string &msg)
@@ -313,6 +317,7 @@ void ATCommanderScheduler::atCommandManager()
         SPDLOG_ERROR("failed to set ATE0");
         std::exit(0);
     }
+    statesSwitching.changeState(State::IDLE);
     heartBeatRefresh();
     while(atCommandManagerIsRunning.load())
     {
@@ -336,7 +341,7 @@ void ATCommanderScheduler::atCommandManager()
         }
 
         // Request config to GSM
-        if(!atRequestsQueue.empty() && receivedCommands.empty())
+        if(statesSwitching.getState() == State::IDLE && receivedCommands.empty() && !atRequestsQueue.empty())
         {
             while(!atRequestsQueue.empty())
             {
@@ -347,17 +352,16 @@ void ATCommanderScheduler::atCommandManager()
         }
 
         // Request SMS to GSM
-        if(!atSmsRequestQueue.empty() && receivedCommands.empty())
+        if(statesSwitching.getState() == State::IDLE && !atSmsRequestQueue.empty() && receivedCommands.empty())
         {
-            while(!atSmsRequestQueue.empty())
-            {
-                // state SMS request
-                smsRequestProcessing();
-            }
-            atSmsRequestCv.notify_one();
+            // state SMS request
+            statesSwitching.changeState(State::SMS_SENDING);
+            smsRequestProcessing();
+            /// TODO sendSyncMsg
+            //atSmsRequestCv.notify_one();
         }
 
-        if(receivedCommands.empty())
+        if(receivedCommands.empty() && atSmsRequestQueue.empty())
         {
             heartBeatTick();
         }
@@ -385,6 +389,21 @@ void ATCommanderScheduler::SMSInfoHandler(StatesSwitching &switching, SchedulerD
     switching.changeState(State::SMS_RECEIVING);
 }
 
+void ATCommanderScheduler::SMSConfirmHandler(StatesSwitching &switching, SchedulerData &data,
+                                             const std::string &command)
+{
+    auto now = std::chrono::steady_clock::now();
+    if(!waitForConfirm("OK", now))
+    {
+        SPDLOG_ERROR("msg: 'OK' was not arrived");
+        return;
+    }
+
+    SPDLOG_INFO("message \"{}\" was send to {}", data.sms.msg, data.sms.number);
+
+    switching.changeState(State::IDLE);
+}
+
 void ATCommanderScheduler::SMSTextHandler(StatesSwitching &switching, SchedulerData &data, const std::string &msg)
 {
     SPDLOG_INFO("SMS text: {}", msg);
@@ -397,7 +416,7 @@ void ATCommanderScheduler::SMSTextHandler(StatesSwitching &switching, SchedulerD
         data.sms = {};
     }
     /// TODO state SMS done
-    switching.changeState(State::IDLE);
+    //    switching.changeState(State::IDLE);
 }
 
 
@@ -425,9 +444,9 @@ void ATCommanderScheduler::RingHandler(StatesSwitching &switching, SchedulerData
 {
 }
 
-
 void ATCommanderScheduler::configProcessing()
 {
+    //    statesSwitching.changeState()
     ATRequest lastTask;
     {
         const std::lock_guard lockRequestsMutex(atRequestsMutex);
@@ -450,20 +469,14 @@ void ATCommanderScheduler::configProcessing()
 
 void ATCommanderScheduler::smsRequestProcessing()
 {
-    if(statesSwitching.getState() != State::IDLE)
-    {
-        SPDLOG_ERROR("SMS can not be send. It's not IDLE state");
-        return;
-    }
-
-    statesSwitching.changeState(State::SMS_SENDING);
-
     SmsRequest sms;
     {
         const std::lock_guard lockRequestsMutex(atSmsRequestMutex);
         sms = atSmsRequestQueue.front();
         atSmsRequestQueue.pop();
     }
+    data.sms.msg = sms.message;
+    data.sms.number = sms.number;
     SPDLOG_DEBUG("Sending SMS: \"{}\" to {}", sms.message, sms.number);
     const std::string sign = "=\"";
     const std::string command = std::string(AT_SMS_REQUEST) + sign + sms.number + "\"";
@@ -478,22 +491,6 @@ void ATCommanderScheduler::smsRequestProcessing()
     now = std::chrono::steady_clock::now();
     serial.sendMessage(sms.message);
     serial.sendChar(SUB);
-
-    /*
-    if(!waitForMessage(SMS_REQUEST, now))
-    {
-        SPDLOG_ERROR("msg: '{}' was not arrived", SMS_REQUEST);
-        return;
-    }
-
-    if(!waitForConfirm("OK", now))
-    {
-        SPDLOG_ERROR("msg: 'OK' was not arrived");
-        return;
-    }
-
-    SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
-    */
 }
 
 void ATCommanderScheduler::heartBeatRefresh()
@@ -526,6 +523,7 @@ ATCommanderScheduler::~ATCommanderScheduler()
 
 void StatesSwitching::changeState(const State newState)
 {
+    SPDLOG_DEBUG("Change state from {} to {}", static_cast<int>(state), static_cast<int>(newState));
     state = newState;
 }
 

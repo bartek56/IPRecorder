@@ -26,6 +26,7 @@ enum class AT_Command : uint16_t
 {
     SMS_RECEIVING_INFO = 0,
     SMS_RECEIVING_TEXT,
+    SMS_CONFIRM,
     CALLING,
     RING,
     UNKNOWN
@@ -38,7 +39,7 @@ public:
     State getState();
 
 private:
-    State state;
+    State state{};
 };
 
 
@@ -175,6 +176,7 @@ private:
 
     // ATHandlers
     void SMSInfoHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
+    void SMSConfirmHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
     void SMSTextHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
     void CallingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
     void RingHandler(StatesSwitching &switching, SchedulerData &data, const std::string &command);
@@ -184,6 +186,7 @@ private:
 
     std::unordered_map<AT_Command, std::string_view> atResponsesDict{
             {AT_Command::SMS_RECEIVING_INFO, SMS_RESPONSE},
+            {AT_Command::SMS_CONFIRM, SMS_CONFIRM},
             {AT_Command::CALLING, CALLING},
             {AT_Command::RING, RING},
     };

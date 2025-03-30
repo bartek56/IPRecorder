@@ -63,8 +63,9 @@ int main()
             SPDLOG_INFO("sendSMS message \"hello world\" to 791942336");
             gsmManager.sendSms("+48791942336", "hello world");
             SPDLOG_INFO("after async message request");
-            gsmManager.sendSmsSync("+48791942336", "test sync message");
-            SPDLOG_INFO("after sync message request");
+            gsmManager.sendSms("+48791942336", "hello world 2");
+            //gsmManager.sendSmsSync("+48791942336", "test sync message");
+            //SPDLOG_INFO("after sync message request");
         }
 
         if(gsmManager.isNewSms())

@@ -33,8 +33,8 @@ def main():
     try:
         ser = serial.Serial(args.port, baudrate, timeout=1)
         print("\nPołączono z portem szeregowym.")
-        print("Dostępne polecenia:\n", "0 - ATE0", "1 - OK",
-              "2 - send '>' for sms", "3 - +CMGS for sms")
+        print("Dostępne polecenia:\n", "0 - ATE0\n", "1 - OK\n",
+              "2 - send '>' for sms\n", "3 - +CMGS for sms")
 
         # Uruchamiamy wątek do odbioru danych
         threading.Thread(target=read_serial, args=(ser,), daemon=True).start()

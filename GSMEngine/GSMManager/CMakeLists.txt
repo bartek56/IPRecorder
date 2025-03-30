@@ -11,7 +11,7 @@ endif()
 add_compile_options(-Wall -Wextra -Wpedantic ${SANITIZE_OPTIONS})
 include_directories(${CMAKE_SOURCE_DIR}/GSMManager ${SPDLOG_INCLUDE_DIR})
 # library for GSM serial
-add_library(${PROJECT_NAME} Serial.hpp Serial.cpp
+add_library(${PROJECT_NAME} ATConfig.hpp Serial.hpp Serial.cpp
     ATCommanderScheduler.hpp ATCommanderScheduler.cpp
     ATCommander.hpp ATCommander.cpp
     GSMManager.hpp GSMManager.cpp

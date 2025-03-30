@@ -8,7 +8,7 @@
 
 
 #if SIMULATOR == 1
-static const std::vector<std::string> k_defaultConfig{"AT", "AT1", "AT2"};
+static const std::vector<std::string> k_defaultConfig{"AT_CONFIG1", "AT_CONFIG2"};
 static constexpr uint32_t k_waitForMessageTimeout = 15000;
 static constexpr uint32_t k_waitForConfirmTimeout = 10000;
 #endif
@@ -21,7 +21,7 @@ static constexpr uint32_t k_waitForConfirmTimeout = 2000;
 
 // Requests
 static constexpr std::string_view AT_SMS_REQUEST = "AT+CMGS";
-static constexpr std::string_view SMS_REQUEST = "+CMGS";
+static constexpr std::string_view SMS_CONFIRM = "+CMGS";
 static constexpr std::string_view AT_SYNC = "AT";
 
 // Reponses
