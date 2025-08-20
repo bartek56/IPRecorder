@@ -19,33 +19,27 @@ class IpRecorderStatus:
     def checkMemory(self):
         # df -h | grep /dev/mmcblk0p2 | awk '{print $3 "/" $2}'
         disks = sh.df('-h')
-        grep = sh.grep('mmcblk0p2', _in=disks)
+        grep = sh.grep('sda3', _in=disks)
         grep = str(grep).strip()
         rootMemory = sh.awk("{print $3 \"/\" $2}", _in=grep)
+        rootMemory = str(rootMemory).strip()
 
-        grep = sh.grep("8c47c0f4-500d",_in=disks)
+        grep = sh.grep("intenso",_in=disks)
         grep = str(grep).strip()
         diskMemory = sh.awk("{print $3 \"/\" $2}", _in=grep)
-
-        grep = sh.grep("/var/log",_in=disks)
-        grep = str(grep).strip()
-        ramMemory = sh.awk( "{print $3 \"/\" $2}", _in=grep)
-        
-        rootMemory = str(rootMemory).strip()
         diskMemory = str(diskMemory).strip()
-        ramMemory = str(ramMemory).strip()
-        return ("External Memory: " + diskMemory + "\n" +
-                "Internal Memory: " + rootMemory + "\n" +
-                "Logs memory: " + ramMemory)
+
+        return ("Internal Memory: " + rootMemory + "\n" +
+                "External Memory: " + diskMemory)
 
     def checkFtpActiveClients(self):
-        #ftpwho -v -o oneline
-        process = subprocess.run('ftpwho -v -o oneline', shell=True, stdout=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.run("netstat -tanp | grep vsftpd | awk '{print $5}' | cut -d: -f1 | sort -u",
+                                 shell=True, stdout=subprocess.PIPE, universal_newlines=True)
         result = process.stdout
         resultStr = ""
-        if "[192.168.1.6]" not in result:
+        if "192.168.1.6" not in result:
             resultStr += "camera1 not available"
-        if "[192.168.1.7]" not in result:
+        if "192.168.1.7" not in result:
             if len(resultStr) > 2:
                 resultStr += "\n"
             resultStr += "camera2 not available"

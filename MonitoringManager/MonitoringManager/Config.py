@@ -1,9 +1,9 @@
-dirNameBrama = '/srv/dev-disk-by-uuid-8c47c0f4-500d-404f-9b3f-b380f844edd1/MONITORING/brama_cam'
-dirNameAltanka = '/srv/dev-disk-by-uuid-8c47c0f4-500d-404f-9b3f-b380f844edd1/MONITORING/altanka_cam'
+dirNameBrama = '/mnt/intenso/MONITORING/brama_cam'
+dirNameAltanka = '/mnt/intenso/MONITORING/altanka_cam'
 
 SMSDir = "/etc/scripts/SMS"
 LOGFile = "/var/log/MonitoringManager.log"
-GSMSerial="/dev/ttyAMA0"
+GSMSerial="/dev/ttyUSB0"
 ACTIVE_USERS_FILE="/etc/scripts/active_users.txt"
 CONTACTS_FILE="/etc/scripts/contacts.txt"
 ALARM_LOG_FILE="/var/log/Alarm.log"
