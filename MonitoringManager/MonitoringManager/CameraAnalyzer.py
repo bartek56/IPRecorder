@@ -1,6 +1,7 @@
 import os
 import datetime
 from Logger import Logger
+import DetectObjects
 
 class CameraAnalyzer():
     def __init__(self, dirName, cameraName, logFile):
@@ -23,10 +24,11 @@ class CameraAnalyzer():
                 Logger.ERROR("Error with Disk")
                 return "ERROR with Disk"
 
-            if (newTheNewestDir!= self.theNewestDir):  #new directory -> new day
+            if (newTheNewestDir != self.theNewestDir):  #new directory -> new day
                 self.countFiles = 0
                 self.theNewestDir=newTheNewestDir
-            newCountFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
+            dirOfPhotos = self.dirName+'/'+self.theNewestDir
+            newCountFiles = self.getListOfFiles(dirOfPhotos)
             Logger.DEBUG("old count of files:", self.countFiles)
             Logger.DEBUG("new count of files:", newCountFiles)
 
@@ -34,8 +36,13 @@ class CameraAnalyzer():
                 self.alarmLevelActive = True
                 if not readyToNotify[0]:
                     info = "ALARM " + self.cameraName + "- log level +1"
+                    results = DetectObjects.analyzeMinuteDir(dirOfPhotos,2)
+                    for res in results:
+                        Logger.INFO(res)
+                        info += " " + res["reason"] + " "
+
                     self.alarmLevel+=1
-                    Logger.INFO(info)
+                    #Logger.INFO(info)
                     self.alarmLog(info)
 
             if readyToNotify[0] and self.alarmLevelActive:
@@ -53,7 +60,7 @@ class CameraAnalyzer():
 
                 self.alarmLevel=0
 
-                Logger.INFO(info)
+                #Logger.INFO(info)
                 self.alarmLog(info)
             self.countFiles=newCountFiles
             return smsMessage
