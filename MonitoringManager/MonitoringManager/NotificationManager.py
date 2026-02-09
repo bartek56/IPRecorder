@@ -102,9 +102,10 @@ class NotificationManager():
         for x in self.usersList:
             nameAndSurname = x.name + " " + x.surname
             number = self.phoneContacts.GetDefaultNumber(nameAndSurname)
-            self.gsmManager.sendSms("+48"+number, message)
+            self.sendSMS(number, message)
 
     def sendSMS(self, number, message):
+        Logger.INFO(f"Send sms '{message}' to number {number}")
         self.gsmManager.sendSms("+48"+number, message) # TODO
 
     def sendSMSAdmin(self, message):
@@ -138,18 +139,14 @@ class NotificationManager():
         data_str = sms.msg
 
         if ('STATUS' in data_str):
-            Logger.INFO("Sending status to", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number, self.checkStatus())
         elif ('ALARMOFF' in data_str):
-            Logger.INFO("Sending Wyloczono alarm to", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number, "Wylaczono ALARM")
             self.removeUserFromActive(contact.name, contact.surname)
         elif ('ALARMON' in data_str):
-            Logger.INFO("Sending Wlaczono alarm to", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number, "Wlaczono ALARM")
             self.addUserAsActive(contact.name, contact.surname)
         else:
-            Logger.INFO("Sending nie wiem o co chodzi do", contact.numbers[0].number)
             self.sendSMS(contact.numbers[0].number,
                          "Nie wiem, czego ode mnie zadasz")
 

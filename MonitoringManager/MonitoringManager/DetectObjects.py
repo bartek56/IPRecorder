@@ -280,38 +280,30 @@ def savePreview(frame, detections, outputPath):
         raise RuntimeError(f"cv2.imwrite returned False for: {outputPath}")
     return outputPath
 
-def chooseBestDetectionFrame(candidateFrames):
+def chooseBestDetectionFrame(candidateFrames, interestingLabels):
     """
-    candidateFrames: list of dicts:
-      {
-        "imgPath": str,
-        "frame": np.ndarray (already resized for inference),
-        "detections": list[dict]
-      }
-    Returns best candidate or None.
+    Wybiera klatkę do zapisu podglądu:
+    - najwięcej interesujących detekcji
+    - potem najwyższe conf
+    - potem suma conf
     """
     if not candidateFrames:
         return None
 
-    personSet = {"person"}
-    animalSet = {"dog", "cat", "bird", "horse", "sheep", "cow"}
+    def frameScore(item):
+        dets = [d for d in item["detections"] if d["label"] in interestingLabels]
+        count = len(dets)
+        bestConf = max((d["conf"] for d in dets), default=-1.0)
+        sumConf = sum(d["conf"] for d in dets)
+        return (count, bestConf, sumConf)
 
-    def bestScore(item):
-        dets = item["detections"]
-        bestPerson = max((d["conf"] for d in dets if d["label"] in personSet), default=-1.0)
-        bestAnimal = max((d["conf"] for d in dets if d["label"] in animalSet), default=-1.0)
-        bestAny = max((d["conf"] for d in dets), default=-1.0)
-
-        # Priorytet: person > animal > any
-        return (bestPerson, bestAnimal, bestAny)
-
-    return max(candidateFrames, key=bestScore)
+    return max(candidateFrames, key=frameScore)
 
 # -------------------------
 # 4) Decyzja: "dlaczego event powstał"
 # -------------------------
 
-def classifyEvent(imagePaths: List[str], yoloModel=None) -> Dict[str, Any]:
+def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
     # Load frames
     frames = []
     validPaths = []
@@ -322,82 +314,62 @@ def classifyEvent(imagePaths: List[str], yoloModel=None) -> Dict[str, Any]:
             validPaths.append(p)
 
     if len(frames) == 0:
-        return {"reason": "other", "confidence": 0.0, "details": {"error": "no_frames"}}
+        return {"reasons": [], "confidence": 0.0, "details": {"error": "no_frames"}}
 
-    # Pick frames for AI (fast)
+    # Klasy, które chcesz raportować i rysować (dopisz/usuń wg potrzeb)
+    interestingLabels = {
+        "person",
+        "car", "motorcycle", "bicycle", "bus", "truck",
+        "dog", "cat", "bird", "horse", "sheep", "cow"
+    }
+
+    # Analizuj 3 klatki dla szybkości: pierwsza/środek/ostatnia
     idxs = sorted(set([0, len(frames) // 2, len(frames) - 1]))
 
-    # YOLO model init once outside in production; allow passing in
-    model = yoloModel if yoloModel is not None else YOLO("yolov8n.pt")
-
-    allDets = []
     candidateFrames = []
+    allDets = []
+
     for i in idxs:
-        f = resizeForInference(frames[i], maxWidth=640)
         original = frames[i]
-        resized = resizeForInference(original, maxWidth=640)  # from your earlier code
-        dets = detectObjects(model, f, conf=0.35)
-        #dets = filterTinyBoxes(dets, f.shape, minAreaRatio=0.012)  # drop micro false positives
-        if dets:
+        resized = resizeForInference(original, maxWidth=640)
+
+        dets = detectObjects(yoloModel, resized, conf=0.35)
+        #dets = filterTinyBoxes(dets, resized.shape, minAreaRatio=0.012)
+
+        detsInteresting = [d for d in dets if d["label"] in interestingLabels and d["conf"] >= 0.35]
+
+        if detsInteresting:
             candidateFrames.append({
                 "imgPath": validPaths[i],
                 "frame": resized,
-                "detections": dets
-            })            
-        
-        allDets.extend(dets)
-        
-    bestPerson = max((d for d in allDets if d["label"] == "person"), default=None, key=lambda d: d["conf"])
-    if bestPerson and bestPerson["conf"] >= 0.35:
-        best = chooseBestDetectionFrame(candidateFrames)
-        outPath = buildPreviewPath(best["imgPath"])
-        saved = savePreview(best["frame"], best["detections"], outPath)
-        return {"reason": "person", "confidence": bestPerson["conf"], "details": {"best": bestPerson}}
+                "detections": detsInteresting
+            })
 
-    animalLabels = {"dog", "cat", "bird", "horse", "sheep", "cow"}
-    bestAnimal = max((d for d in allDets if d["label"] in animalLabels), default=None, key=lambda d: d["conf"])
-    if bestAnimal and bestAnimal["conf"] >= 0.35:
-        best = chooseBestDetectionFrame(candidateFrames)
-        outPath = buildPreviewPath(best["imgPath"])
-        saved = savePreview(best["frame"], best["detections"], outPath)
-        return {"reason": "animal", "confidence": bestAnimal["conf"], "details": {"best": bestAnimal}}
+        allDets.extend(detsInteresting)
 
+    # Nic nie wykryto
+    if not allDets:
+        return {"reasons": ["none"], "confidence": 0.0, "details": {"labelsFound": []}}
 
-    # Heurystyki jeśli brak obiektu
-    #rainScoreVal, changeRatio, smallRatio, bigCount = rainFeatures(frames)
-    #insectScoreVal = insectSpiderScore(frames)
-    #lightScoreVal = lightChangeScore(frames)
+    # reasons = unikalne etykiety YOLO z eventu (bez priorytetów)
+    labelsFound = sorted(set(d["label"] for d in allDets))
+    bestConf = float(max(d["conf"] for d in allDets))
 
-    # Progi startowe (stroi się na realnych danych)
-    #if rainScoreVal >= 0.9 and smallRatio >= 0.35 and bigCount < 1.0:
-    #    conf = min(1.0, 0.5 + (rainScoreVal / 2.0))
-    #    return {
-    #        "reason": "rain_snow",
-    #        "confidence": conf,
-    #        "details": {"rainScore": rainScoreVal, "changeRatio": changeRatio, "smallRatio": smallRatio, "bigCount": bigCount}
-    #    }
-
-#    if insectScoreVal >= 0.6:
-#        conf = min(1.0, 0.4 + insectScoreVal)
-#        return {
-#            "reason": "insect_spider",
-#            "confidence": conf,
-#            "details": {"insectScore": insectScoreVal}
-#        }
-
-#    if lightScoreVal >= 0.08 and changeRatio >= 0.10:
-#        conf = min(1.0, 0.4 + (lightScoreVal * 4.0))
-#        return {
-#            "reason": "light_shadow",
-#            "confidence": conf,
-#            "details": {"lightScore": lightScoreVal, "changeRatio": changeRatio}
-#        }
-
-    return {
-        "reason": "other",
-        "confidence": 0.35,
-        "details": {"rainScore": 0, "insectScore": 0, "lightScore": 0}
+    details = {
+        "labelsFound": labelsFound,
+        "bestConf": bestConf,
+        "numDetections": len(allDets)
     }
+
+    # Zapisz preview (jedna najlepsza klatka) z WSZYSTKIMI obiektami
+    if savePreviewOnDetect and candidateFrames:
+        bestFrame = chooseBestDetectionFrame(candidateFrames, interestingLabels)
+        outPath = buildPreviewPath(bestFrame["imgPath"])
+        saved = savePreview(bestFrame["frame"], bestFrame["detections"], outPath)
+        details["preview"] = saved
+
+    return {"reasons": labelsFound, "confidence": bestConf, "details": details}
+
 
 # -------------------------
 # 5) Uruchomienie na folderze minuty (np. 18/45/)
