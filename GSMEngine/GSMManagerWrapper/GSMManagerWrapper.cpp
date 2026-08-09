@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include "GSMManager.hpp"
 #include "spdlog/spdlog.h"
 
@@ -20,8 +21,6 @@ PYBIND11_MODULE(GSMEngine, m)
             .def("initialize", &GSMManager::initilize)
             .def("sendSms", &GSMManager::sendSms)
             .def("sendSmsSync", &GSMManager::sendSmsSync)
-            .def("isNewSms", &GSMManager::isNewSms)
             .def("getSms", &GSMManager::getSms)
-            .def("isNewCall", &GSMManager::isNewCall)
             .def("getCall", &GSMManager::getCall);
 }

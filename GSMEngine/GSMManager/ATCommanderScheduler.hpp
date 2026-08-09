@@ -2,8 +2,20 @@
 #define ATCOMMANDERSCHEDULER_HPP
 
 #include "Serial.hpp"
-#include <stdexcept>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <future>
 #include <queue>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <vector>
 namespace AT
 {
 struct ATResponse
@@ -22,6 +34,12 @@ struct ATRequest
     std::vector<std::string> responsexpected;
 };
 
+struct ATRequestTask
+{
+    ATRequest request;
+    std::shared_ptr<std::promise<bool>> completion;
+};
+
 struct SmsRequest
 {
     SmsRequest()
@@ -32,6 +50,12 @@ struct SmsRequest
     }
     std::string number;
     std::string message;
+};
+
+struct SmsRequestTask
+{
+    SmsRequest request;
+    std::shared_ptr<std::promise<bool>> completion;
 };
 
 struct Sms
@@ -72,13 +96,11 @@ public:
 protected:
     // requests AT command
     std::mutex atRequestsMutex;
-    std::queue<ATRequest> atRequestsQueue;
-    std::condition_variable atRequestCv;
+    std::queue<ATRequestTask> atRequestsQueue;
 
     // SMS requests
     std::mutex atSmsRequestMutex;
-    std::queue<SmsRequest> atSmsRequestQueue;
-    std::condition_variable atSmsRequestCv;
+    std::queue<SmsRequestTask> atSmsRequestQueue;
 
     // received SMS
     std::queue<Sms> receivedSmses;
@@ -92,8 +114,11 @@ private:
     bool setConfigATE0();
     bool sendSync();
 
+    bool hasReceivedCommands();
+    bool hasAtRequests();
+    bool hasSmsRequests();
     bool getLastMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
-    std::string getOldestMessage();
+    bool getOldestMessage(std::string &msg);
     bool getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg);
     bool waitForMessage(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint);
     bool waitForConfirm(std::string_view msg, const std::chrono::steady_clock::time_point &timePoint);
@@ -108,7 +133,7 @@ private:
 
     // received AT command
     static constexpr int maxReceivedCommands = 20;
-    std::vector<ATResponse> receivedCommands;
+    std::deque<ATResponse> receivedCommands;
     std::mutex receivedCommandsMutex;
     std::condition_variable cvATReceiver;
 
@@ -118,8 +143,8 @@ private:
     std::atomic<bool> atCommandManagerIsRunning;
     void smsProcessing(const std::string &msg);
     void callingProcessing(const std::string &msg);
-    void configProcessing();
-    void smsRequestProcessing();
+    bool configProcessing();
+    bool smsRequestProcessing();
 
     // Heart beat
     std::chrono::steady_clock::time_point lastRefresh;

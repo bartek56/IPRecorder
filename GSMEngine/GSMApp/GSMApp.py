@@ -23,8 +23,8 @@ def main():
     #gsm.sendSmsSync("+48791942336", "hello world 2")
     #print("after async message")
     while not killer.kill_now:
-        if gsm.isNewSms():
-            sms = gsm.getSms()
+        sms = gsm.getSms()
+        if sms is not None:
             print("new sms")
             print(sms.dateAndTime, sms.number)
             print(sms.msg)

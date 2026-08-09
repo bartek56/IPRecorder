@@ -5,6 +5,7 @@
 #include <chrono>
 #include <mutex>
 #include <string_view>
+#include <utility>
 
 namespace AT
 {
@@ -18,68 +19,70 @@ bool ATCommander::setConfig(std::string_view command)
     ATRequest request = ATRequest();
     request.request = command;
     request.responsexpected.emplace_back("OK");
+    auto completion = std::make_shared<std::promise<bool>>();
+    auto result = completion->get_future();
 
-    std::unique_lock lockRequestsQueue(atRequestsMutex);
-    atRequestsQueue.push(request);
+    {
+        const std::lock_guard lockRequestsQueue(atRequestsMutex);
+        atRequestsQueue.push(ATRequestTask{std::move(request), completion});
+    }
 
-    atRequestCv.wait_for(lockRequestsQueue, std::chrono::milliseconds(k_waitForMessageTimeout),
-                         [this]() { return atRequestsQueue.empty(); });
-    if(!atRequestsQueue.empty())
+    if(result.wait_for(std::chrono::milliseconds(k_waitForMessageTimeout)) != std::future_status::ready)
     {
         SPDLOG_ERROR("wait for setConfig timeout!");
         return false;
     }
-    SPDLOG_DEBUG("Setting \"{}\" was successful", command);
-    return true;
+
+    const bool success = result.get();
+    if(success)
+        SPDLOG_DEBUG("Setting \"{}\" was successful", command);
+    return success;
 }
 
 bool ATCommander::sendSms(const SmsRequest &sms)
 {
     SPDLOG_DEBUG("add SMS to queue: Text: \"{}\" number: {}", sms.message, sms.number);
     const std::lock_guard lock(atSmsRequestMutex);
-    atSmsRequestQueue.push(sms);
+    atSmsRequestQueue.push(SmsRequestTask{sms, nullptr});
     return true;
 }
 
 bool ATCommander::sendSmsSync(const SmsRequest &sms)
 {
     SPDLOG_DEBUG("sending SMS: Text: \"{}\" number: {}", sms.message, sms.number);
-    std::unique_lock lockRequestsQueue(atSmsRequestMutex);
-    atSmsRequestQueue.push(sms);
-    atSmsRequestCv.wait_for(lockRequestsQueue, std::chrono::milliseconds(k_waitForMessageTimeout),
-                            [this]() { return atSmsRequestQueue.empty(); });
-    if(!atSmsRequestQueue.empty())
+    auto completion = std::make_shared<std::promise<bool>>();
+    auto result = completion->get_future();
+    {
+        const std::lock_guard lockRequestsQueue(atSmsRequestMutex);
+        atSmsRequestQueue.push(SmsRequestTask{sms, completion});
+    }
+
+    if(result.wait_for(std::chrono::milliseconds(k_waitForMessageTimeout)) != std::future_status::ready)
     {
         SPDLOG_ERROR("wait for sending SMS timeout!");
         return false;
     }
-    return true;
+    return result.get();
 }
 
-bool ATCommander::isNewSms()
+std::optional<Sms> ATCommander::getLastSms()
 {
     const std::lock_guard<std::mutex> lockReceivedSmses(smsMutex);
-    return !receivedSmses.empty();
-}
+    if(receivedSmses.empty())
+        return std::nullopt;
 
-Sms ATCommander::getLastSms()
-{
-    const std::lock_guard<std::mutex> lockReceivedSmses(smsMutex);
-    auto lastSms = receivedSmses.front();
+    auto lastSms = std::move(receivedSmses.front());
     receivedSmses.pop();
     return lastSms;
 }
 
-bool ATCommander::isNewCall()
+std::optional<Call> ATCommander::getLastCall()
 {
     const std::lock_guard<std::mutex> lockCalls(callsMutex);
-    return !calls.empty();
-}
+    if(calls.empty())
+        return std::nullopt;
 
-Call ATCommander::getLastCall()
-{
-    const std::lock_guard<std::mutex> lockCalls(callsMutex);
-    auto lastCall = calls.front();
+    auto lastCall = std::move(calls.front());
     calls.pop();
     return lastCall;
 }

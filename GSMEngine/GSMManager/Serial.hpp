@@ -2,6 +2,7 @@
 #define SERIAL_HPP
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <memory>
 #include <thread>
@@ -55,6 +56,7 @@ private:
     void sendThread();
     void readThread();
     void newMessageNotify(char* buffer, const uint32_t& sizeOfMessage);
+    bool writeAll(std::string_view message);
 };
 
 #endif// SERIAL_HPP

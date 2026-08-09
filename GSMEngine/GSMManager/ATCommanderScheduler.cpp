@@ -17,7 +17,6 @@ namespace AT
 {
 ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port), atCommandManagerIsRunning(false)
 {
-    receivedCommands.reserve(maxReceivedCommands);
     serial.setReadEvent(
             [&](const std::string &msg)
             {
@@ -74,7 +73,7 @@ bool ATCommanderScheduler::sendSync()
         SPDLOG_ERROR("OK message was not arrived! SendSync failed!");
         return false;
     }
-    if(!receivedCommands.empty())
+    if(hasReceivedCommands())
     {
         SPDLOG_ERROR("Unexpected message was came! SendSync failed!");
         return false;
@@ -123,14 +122,34 @@ bool ATCommanderScheduler::getLastMessageWithTimeout(const uint32_t &miliSec, st
     return false;
 }
 
-std::string ATCommanderScheduler::getOldestMessage()
+bool ATCommanderScheduler::hasReceivedCommands()
+{
+    const std::lock_guard lockReceivedCommands(receivedCommandsMutex);
+    return !receivedCommands.empty();
+}
+
+bool ATCommanderScheduler::hasAtRequests()
+{
+    const std::lock_guard lockRequests(atRequestsMutex);
+    return !atRequestsQueue.empty();
+}
+
+bool ATCommanderScheduler::hasSmsRequests()
+{
+    const std::lock_guard lockRequests(atSmsRequestMutex);
+    return !atSmsRequestQueue.empty();
+}
+
+bool ATCommanderScheduler::getOldestMessage(std::string &msg)
 {
     SPDLOG_TRACE("getOldestMessage");
     const std::lock_guard lockReceivedCommands(receivedCommandsMutex);
-    auto receivedCommand = receivedCommands.front();
-    auto msg = receivedCommand.command;
-    receivedCommands.erase(receivedCommands.begin());
-    return msg;
+    if(receivedCommands.empty())
+        return false;
+
+    msg = receivedCommands.front().command;
+    receivedCommands.pop_front();
+    return true;
 }
 
 bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, std::string &msg)
@@ -140,7 +159,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     if(!receivedCommands.empty())
     {
         msg = receivedCommands.front().command;
-        receivedCommands.erase(receivedCommands.begin());
+        receivedCommands.pop_front();
         SPDLOG_DEBUG("\"{}\" - last message", msg);
         return true;
     }
@@ -159,7 +178,7 @@ bool ATCommanderScheduler::getOldestMessageWithTimeout(const uint32_t &miliSec, 
     if(!receivedCommands.empty())
     {
         msg = receivedCommands.front().command;
-        receivedCommands.erase(receivedCommands.begin());
+        receivedCommands.pop_front();
         SPDLOG_DEBUG("\"{}\" - new message", msg);
         return true;
     }
@@ -283,15 +302,17 @@ void ATCommanderScheduler::atCommandManager()
     if(!setConfigATE0())
     {
         SPDLOG_ERROR("failed to set ATE0");
-        std::exit(0);
+        return;
     }
     heartBeatRefresh();
     while(atCommandManagerIsRunning.load())
     {
         // Requests, status etc from GSM
-        while(!receivedCommands.empty())
+        while(true)
         {
-            std::string msg = getOldestMessage();
+            std::string msg;
+            if(!getOldestMessage(msg))
+                break;
             SPDLOG_DEBUG("AT response/msg from receivedCommands: {}", msg);
 
             if(msg.find(SMS_RESPONSE) != std::string::npos and msg.find("\",,\"") != std::string::npos)
@@ -320,26 +341,24 @@ void ATCommanderScheduler::atCommandManager()
         }
 
         // Request config to GSM
-        if(!atRequestsQueue.empty() && receivedCommands.empty())
+        if(hasAtRequests() && !hasReceivedCommands())
         {
-            while(!atRequestsQueue.empty())
+            while(hasAtRequests())
             {
                 configProcessing();
             }
-            atRequestCv.notify_one();
         }
 
         // Request SMS to GSM
-        if(!atSmsRequestQueue.empty() && receivedCommands.empty())
+        if(hasSmsRequests() && !hasReceivedCommands())
         {
-            while(!atSmsRequestQueue.empty())
+            while(hasSmsRequests())
             {
                 smsRequestProcessing();
             }
-            atSmsRequestCv.notify_one();
         }
 
-        if(receivedCommands.empty())
+        if(!hasReceivedCommands())
         {
             heartBeatTick();
         }
@@ -352,13 +371,31 @@ void ATCommanderScheduler::atCommandManager()
 
 void ATCommanderScheduler::smsProcessing(const std::string &msg)
 {
+    if(msg.size() < 2 || msg.compare(msg.size() - 2, 2, "\r\n") != 0)
+    {
+        SPDLOG_ERROR("Invalid SMS header without CRLF: {}", msg);
+        return;
+    }
+
     const auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
     auto splitted = utils::split(msgWithoutCRLF, ",,");
+    if(splitted.size() < 2)
+    {
+        SPDLOG_ERROR("Invalid SMS header: {}", msg);
+        return;
+    }
 
     splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
     splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
 
-    auto number = utils::split(splitted[0], " ")[1];
+    const auto senderFields = utils::split(splitted[0], " ");
+    if(senderFields.size() < 2 || senderFields[1].empty())
+    {
+        SPDLOG_ERROR("Invalid SMS sender field: {}", splitted[0]);
+        return;
+    }
+
+    const auto number = senderFields[1];
     Sms sms;
     sms.number = number;
     auto date = splitted[1];
@@ -375,7 +412,10 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
         return;
     }
     SPDLOG_INFO("new SMS text: {}", msgSms);
-    sms.msg = msgSms.substr(0, msgSms.size() - 2);
+    if(msgSms.size() >= 2 && msgSms.compare(msgSms.size() - 2, 2, "\r\n") == 0)
+        sms.msg = msgSms.substr(0, msgSms.size() - 2);
+    else
+        sms.msg = msgSms;
     {
         const std::lock_guard<std::mutex> lockSmsMutex(smsMutex);
         receivedSmses.push(std::move(sms));
@@ -386,9 +426,22 @@ void ATCommanderScheduler::callingProcessing(const std::string &msg)
 {
     // +CLIP: "+48791942336",145,,,"",0
     auto splitted = utils::split(msg, ": ");
+    if(splitted.size() < 2)
+    {
+        SPDLOG_ERROR("Invalid call notification: {}", msg);
+        return;
+    }
+
     auto callInfo = splitted[1];
     auto splitted2 = utils::split(callInfo, ",");
-    auto number = splitted2[0].substr(1, splitted2[0].length() - 2);
+    if(splitted2.empty() || splitted2[0].size() < 2 || splitted2[0].front() != '"' ||
+       splitted2[0].back() != '"')
+    {
+        SPDLOG_ERROR("Invalid caller number: {}", callInfo);
+        return;
+    }
+
+    const auto number = splitted2[0].substr(1, splitted2[0].size() - 2);
     SPDLOG_INFO("Calling from {} !!! ", number);
 
     ATRequest request = ATRequest();
@@ -397,41 +450,50 @@ void ATCommanderScheduler::callingProcessing(const std::string &msg)
     request.responsexpected.emplace_back("OK");
     {
         const std::lock_guard lockRequestsMutex(atRequestsMutex);
-        atRequestsQueue.push(request);
+        atRequestsQueue.push(ATRequestTask{std::move(request), nullptr});
     }
-    calls.emplace(number);
+    {
+        const std::lock_guard lockCalls(callsMutex);
+        calls.emplace(number);
+    }
 }
 
-void ATCommanderScheduler::configProcessing()
+bool ATCommanderScheduler::configProcessing()
 {
-    ATRequest lastTask;
+    ATRequestTask task;
     {
         const std::lock_guard lockRequestsMutex(atRequestsMutex);
-        lastTask = atRequestsQueue.front();
+        task = std::move(atRequestsQueue.front());
         atRequestsQueue.pop();
     }
-    SPDLOG_TRACE("AT request: {}", lastTask.request);
+    SPDLOG_TRACE("AT request: {}", task.request.request);
     auto now = std::chrono::steady_clock::now();
-    serial.sendMessage(lastTask.request);
-    auto expectedResponses = lastTask.responsexpected;
+    serial.sendMessage(task.request.request);
+    auto expectedResponses = task.request.responsexpected;
+    bool success = true;
     for(const auto &expect : expectedResponses)
     {
         if(!waitForConfirm(expect, now))
         {
+            success = false;
             SPDLOG_ERROR("Expected msg was not arrived: {}", expect);
-            SPDLOG_ERROR("Failed to set config {}", lastTask.request);
+            SPDLOG_ERROR("Failed to set config {}", task.request.request);
         }
     }
+    if(task.completion)
+        task.completion->set_value(success);
+    return success;
 }
 
-void ATCommanderScheduler::smsRequestProcessing()
+bool ATCommanderScheduler::smsRequestProcessing()
 {
-    SmsRequest sms;
+    SmsRequestTask task;
     {
         const std::lock_guard lockRequestsMutex(atSmsRequestMutex);
-        sms = atSmsRequestQueue.front();
+        task = std::move(atSmsRequestQueue.front());
         atSmsRequestQueue.pop();
     }
+    auto sms = std::move(task.request);
     SPDLOG_DEBUG("Sending SMS: \"{}\" to {}", sms.message, sms.number);
     const std::string sign = "=\"";
     const std::string command = std::string(AT_SMS_REQUEST) + sign + sms.number + "\"";
@@ -441,7 +503,9 @@ void ATCommanderScheduler::smsRequestProcessing()
     if(!waitForMessage(SMS_INPUT, now))
     {
         SPDLOG_ERROR("msg:> was not arrived");
-        return;
+        if(task.completion)
+            task.completion->set_value(false);
+        return false;
     }
     now = std::chrono::steady_clock::now();
     serial.sendMessage(sms.message);
@@ -450,16 +514,23 @@ void ATCommanderScheduler::smsRequestProcessing()
     if(!waitForMessage(SMS_REQUEST, now))
     {
         SPDLOG_ERROR("msg:{} was not arrived", SMS_REQUEST);
-        return;
+        if(task.completion)
+            task.completion->set_value(false);
+        return false;
     }
 
     if(!waitForConfirm("OK", now))
     {
         SPDLOG_ERROR("msg:OK was not arrived");
-        return;
+        if(task.completion)
+            task.completion->set_value(false);
+        return false;
     }
 
     SPDLOG_INFO("message \"{}\" was send to {}", sms.message, sms.number);
+    if(task.completion)
+        task.completion->set_value(true);
+    return true;
 }
 
 void ATCommanderScheduler::heartBeatRefresh()

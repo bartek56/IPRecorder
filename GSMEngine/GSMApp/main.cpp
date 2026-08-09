@@ -67,11 +67,10 @@ int main()
             SPDLOG_INFO("after sync message request");
         }
 
-        if(gsmManager.isNewSms())
+        if(auto sms = gsmManager.getSms())
         {
-            auto sms = gsmManager.getSms();
-            SPDLOG_INFO("new SMS: {} {} {}", sms.dateAndTime, sms.number, sms.msg);
-            gsmManager.sendSms(sms.number, "thanks for message");
+            SPDLOG_INFO("new SMS: {} {} {}", sms->dateAndTime, sms->number, sms->msg);
+            gsmManager.sendSms(sms->number, "thanks for message");
         }
     }
 }

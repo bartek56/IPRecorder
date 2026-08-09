@@ -29,22 +29,12 @@ bool GSMManager::sendSmsSync(const std::string &number, const std::string &messa
     return atCommander.sendSmsSync(SmsRequest(number, message));
 }
 
-bool GSMManager::isNewSms()
-{
-    return atCommander.isNewSms();
-}
-
-Sms GSMManager::getSms()
+std::optional<Sms> GSMManager::getSms()
 {
     return atCommander.getLastSms();
 }
 
-bool GSMManager::isNewCall()
-{
-    return atCommander.isNewCall();
-}
-
-Call GSMManager::getCall()
+std::optional<Call> GSMManager::getCall()
 {
     return atCommander.getLastCall();
 }
@@ -66,6 +56,11 @@ bool GSMManager::setDefaultConfig()
     for(const auto &config : k_defaultConfig)
     {
         result &= setConfig(config);
+        if (result == false)
+        {
+            SPDLOG_ERROR("Failed to set {} ", config);
+            break;
+        }
     }
 
     return result;

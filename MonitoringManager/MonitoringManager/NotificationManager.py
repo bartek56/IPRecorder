@@ -126,9 +126,9 @@ class NotificationManager():
         return contact
 
     def checkNewMessage(self):
-        if (not self.gsmManager.isNewSms()):
-            return
         sms = self.gsmManager.getSms()
+        if sms is None:
+            return
         contact = self.checkSender(sms.number)
         Logger.INFO("New SMS:", sms.number, sms.msg)
         if contact is None:
@@ -154,9 +154,9 @@ class NotificationManager():
                          "Nie wiem, czego ode mnie zadasz")
 
     def checkNewCall(self):
-        if (not self.gsmManager.isNewCall()):
-            return
         call = self.gsmManager.getCall()
+        if call is None:
+            return
         info = "New call from " + call.number
         Logger.INFO(info)
         self.sendSMSAdmin(info)

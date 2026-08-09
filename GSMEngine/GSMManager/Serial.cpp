@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
@@ -79,16 +80,16 @@ void Serial::readThread()
     // size of message with end CRLF
     uint32_t sizeOfMessage = 0;
     char *startOfMessage = nullptr;
-    struct timeval timeout
-    {
-    };
-    timeout.tv_sec = 0;
-    timeout.tv_usec = k_activeTimeus;
 
     while(serialRunning.load())
     {
         FD_ZERO(&read_fds);
         FD_SET(fd, &read_fds);
+        struct timeval timeout
+        {
+        };
+        timeout.tv_sec = 0;
+        timeout.tv_usec = k_activeTimeus;
 
         // wait for data
         const int result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
@@ -202,21 +203,12 @@ void Serial::sendThread()
                 continue;
             }
             auto newMessage = m_messagesWriteQueue.begin();
-            ssize_t bytesWritten = 0;
+            bool messageWasWritten = false;
             {
                 const std::lock_guard<std::mutex> lockSerial(serialMutex);
-                // send char
-                if(newMessage->size() == 2)
-                {
-                    auto ptr = static_cast<char>(std::stoi(newMessage->c_str()));
-                    bytesWritten = write(fd, &ptr, 1);
-                }
-                else
-                {
-                    bytesWritten = write(fd, newMessage->c_str(), newMessage->size());
-                }
+                messageWasWritten = writeAll(*newMessage);
             }
-            if(bytesWritten < 0)
+            if(!messageWasWritten)
             {
                 SPDLOG_ERROR("Error to send data");
             }
@@ -232,6 +224,35 @@ void Serial::sendThread()
     SPDLOG_DEBUG("sender closed");
 }
 
+bool Serial::writeAll(std::string_view message)
+{
+    size_t bytesWritten = 0;
+
+    while(bytesWritten < message.size() && serialRunning.load())
+    {
+        const auto result = ::write(fd, message.data() + bytesWritten, message.size() - bytesWritten);
+
+        if(result > 0)
+        {
+            bytesWritten += static_cast<size_t>(result);
+            continue;
+        }
+
+        if(result == -1 && errno == EINTR)
+            continue;
+
+        if(result == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
+            continue;
+        }
+
+        return false;
+    }
+
+    return bytesWritten == message.size();
+}
+
 
 void Serial::sendMessage(const std::string &message)
 {
@@ -244,7 +265,7 @@ void Serial::sendMessage(const std::string &message)
 void Serial::sendChar(const char &message)
 {
     const std::lock_guard<std::mutex> lock(messagesWriteMutex);
-    m_messagesWriteQueue.push_back(std::to_string(message));
+    m_messagesWriteQueue.emplace_back(1, message);
     isNewMessageToSend = true;
     sendCondition.notify_one();
 }

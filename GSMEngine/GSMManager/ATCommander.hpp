@@ -5,6 +5,7 @@
 #include "ATCommanderScheduler.hpp"
 
 #include <string_view>
+#include <optional>
 
 namespace AT
 {
@@ -16,10 +17,8 @@ namespace AT
         bool setConfig(std::string_view command);
         bool sendSms(const SmsRequest &sms);
         bool sendSmsSync(const SmsRequest &sms);
-        bool isNewSms();
-        Sms getLastSms();
-        bool isNewCall();
-        Call getLastCall();
+        std::optional<Sms> getLastSms();
+        std::optional<Call> getLastCall();
     };
 }// namespace AT
 //#endif// ATCOMMANDER_HPP

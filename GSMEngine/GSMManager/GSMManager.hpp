@@ -4,6 +4,7 @@
 #include "ATCommander.hpp"
 
 #include <string>
+#include <optional>
 using namespace AT;
 
 class GSMManager
@@ -13,10 +14,8 @@ public:
     bool initilize();
     bool sendSms(const std::string& number, const std::string& message);
     bool sendSmsSync(const std::string& number, const std::string& message);
-    bool isNewSms();
-    Sms getSms();
-    bool isNewCall();
-    Call getCall();
+    std::optional<Sms> getSms();
+    std::optional<Call> getCall();
 private:
     ATCommander atCommander;
     bool setDefaultConfig();
