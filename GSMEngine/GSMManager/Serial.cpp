@@ -1,21 +1,17 @@
 #include "Serial.hpp"
 #include "spdlog/spdlog.h"
 
-#include "Utils.hpp"
-
-#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cerrno>
 #include <cstdint>
-#include <cstring>
 #include <fcntl.h>
 #include <functional>
-#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <termios.h>
@@ -24,67 +20,58 @@
 #include <utility>
 
 
-Serial::Serial(std::string_view serialPort) : fd(-1), serialRunning(false), buffer()
+Serial::Serial(std::string_view serialPort)
 {
-    fd = open(serialPort.begin(), O_RDWR);
-    if(fd == -1)
+    const std::string portPath{serialPort};
+    const int descriptor = ::open(portPath.c_str(), O_RDWR | O_NOCTTY);
+    if(descriptor == -1)
     {
         SPDLOG_ERROR("GSM serial is not connected on port: {}", serialPort);
-        throw std::runtime_error("Initialization failed");
+        throw std::system_error(errno, std::generic_category(), "Failed to open serial port " + portPath);
     }
+    fd.reset(descriptor);
 
-    // serial port configuration
-    struct termios options
-    {
-    };
-    tcgetattr(fd, &options);
-    cfsetispeed(&options, B19200);
-    cfsetospeed(&options, B19200);
-    options.c_cflag |= (CLOCAL | CREAD);
-    options.c_cflag &= ~PARENB;// disable parity
-    options.c_cflag &= ~CSTOPB;// one bit of stop
-    options.c_cflag &= ~CSIZE; // disable bits of size
-    options.c_cflag |= CS8;    // 8 bits of data
-    options.c_lflag = 0;       //~(ICANON | ECHO | ECHOE | ISIG);
-    options.c_iflag = 0;       // ~(IXON | IXOFF | IXANY);
-    tcsetattr(fd, TCSANOW, &options);
+    termios options{};
+    if(tcgetattr(fd.get(), &options) == -1)
+        throw std::system_error(errno, std::generic_category(), "Failed to read serial port settings");
 
-    // non-blocking mode
-    fcntl(fd, F_SETFL, O_NONBLOCK);
-    serialRunning.store(true);
+    cfmakeraw(&options);
+    options.c_cflag &= ~(PARENB | CSTOPB | CSIZE);
+    options.c_cflag |= CLOCAL | CREAD | CS8;
+    options.c_cc[VMIN] = 0;
+    options.c_cc[VTIME] = 0;
 
-    std::fill(buffer.begin(), buffer.end(), 0);
-    receiver = std::make_unique<std::thread>([this]() { this->readThread(); });
-    sender = std::make_unique<std::thread>([this]() { this->sendThread(); });
+    if(cfsetispeed(&options, B19200) == -1 || cfsetospeed(&options, B19200) == -1)
+        throw std::system_error(errno, std::generic_category(), "Failed to set serial port speed");
+    if(tcsetattr(fd.get(), TCSANOW, &options) == -1)
+        throw std::system_error(errno, std::generic_category(), "Failed to apply serial port settings");
+
+    const int flags = fcntl(fd.get(), F_GETFL);
+    if(flags == -1 || fcntl(fd.get(), F_SETFL, flags | O_NONBLOCK) == -1)
+        throw std::system_error(errno, std::generic_category(), "Failed to enable non-blocking serial port mode");
+
+    receiver = std::jthread([this](std::stop_token stopToken) { readThread(stopToken); });
+    sender = std::jthread([this](std::stop_token stopToken) { sendThread(stopToken); });
 }
 
 Serial::~Serial()
 {
-    serialRunning.store(false);
-    sender->join();
-    receiver->join();
-    close(fd);
-    SPDLOG_INFO("Serial was closed");
+    sender.request_stop();
+    sendCondition.notify_all();
+    receiver.request_stop();
+    SPDLOG_INFO("Serial is stopping");
 }
 
-void Serial::readThread()
+void Serial::readThread(std::stop_token stopToken)
 {
     fd_set read_fds;
+    std::array<char, k_bufferSize> readBuffer{};
+    std::string pendingMessage;
 
-    // number of read bytes from serial on one sequence
-    ssize_t bytesRead = 0;
-
-    // number of read bytes from serial
-    uint32_t totalBytesRead = 0;
-
-    // size of message with end CRLF
-    uint32_t sizeOfMessage = 0;
-    char *startOfMessage = nullptr;
-
-    while(serialRunning.load())
+    while(!stopToken.stop_requested())
     {
         FD_ZERO(&read_fds);
-        FD_SET(fd, &read_fds);
+        FD_SET(fd.get(), &read_fds);
         struct timeval timeout
         {
         };
@@ -92,110 +79,116 @@ void Serial::readThread()
         timeout.tv_usec = k_activeTimeus;
 
         // wait for data
-        const int result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
+        const int result = select(fd.get() + 1, &read_fds, nullptr, nullptr, &timeout);
         if(result == -1)
         {
+            if(errno == EINTR)
+                continue;
+
             SPDLOG_ERROR("error with select()");
             break;
         }
-        // timeout but some data was saved in buffer
-        if(result == 0 && sizeOfMessage > 0)
-        {
-            SPDLOG_TRACE("timeout");
-            newMessageNotify(startOfMessage, sizeOfMessage);
-            totalBytesRead = 0;
-            sizeOfMessage = 0;
-        }
 
-        else if(result > 0)
+        if(result == 0)
         {
-            // check if select is for dedicated device
-            if(FD_ISSET(fd, &read_fds))
+            if(!pendingMessage.empty())
             {
-                {
-                    const std::lock_guard<std::mutex> lock(serialMutex);
-                    bytesRead = read(fd, buffer.data() + totalBytesRead, k_bufferSize - totalBytesRead - 1);
-                }
-
-                if(bytesRead > 0)
-                {
-                    totalBytesRead += bytesRead;
-                    startOfMessage = buffer.data();
-                    uint32_t sizeOfPreviousMessage = totalBytesRead - bytesRead;
-                    if(sizeOfPreviousMessage > 0)
-                    {
-                        sizeOfPreviousMessage -= 1;
-                    }
-
-                    for(uint32_t i = sizeOfPreviousMessage; i < (totalBytesRead - 1); i++)
-                    {
-                        sizeOfMessage++;
-
-                        const auto asciValue1 = utils::charToInt(buffer[i]);
-                        const auto asciValue2 = utils::charToInt(buffer[i + 1]);
-                        SPDLOG_TRACE("byte {} {}", i, asciValue1);
-
-
-                        if(asciValue1 == k_CR && asciValue2 == k_LF)
-                        {
-                            SPDLOG_TRACE("byte {} {} it is CRLF", i, asciValue2);
-                            if(i == 0)
-                            {
-                                SPDLOG_TRACE("skip first CRLF");
-                                i += 1;
-                                sizeOfMessage += 1;
-                                continue;
-                            }
-                            i++;
-                            sizeOfMessage++;
-                            if(utils::charToInt(buffer[i + 1]) == k_CR && utils::charToInt(buffer[i + 2]) == k_LF)
-                            {
-                                SPDLOG_TRACE("skip CRLF duplicate");
-                                // skip CRLF duplicate
-                                i += 2;
-                            }
-                            newMessageNotify(startOfMessage, sizeOfMessage);
-                            sizeOfMessage = 0;
-                            startOfMessage = buffer.data() + i + 1;
-                        }
-                    }
-                    if(sizeOfMessage == 0)
-                    {
-                        // no more data - next data put to start of buffer
-                        SPDLOG_TRACE("no more data");
-                        totalBytesRead = 0;
-                    }
-                }
+                SPDLOG_TRACE("message delimiter timeout");
+                newMessageNotify(std::move(pendingMessage));
+                pendingMessage.clear();
             }
+            continue;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(k_sleepTimems));
+
+        if(!FD_ISSET(fd.get(), &read_fds))
+            continue;
+
+        ssize_t bytesRead = 0;
+        {
+            const std::lock_guard<std::mutex> lock(serialMutex);
+            bytesRead = ::read(fd.get(), readBuffer.data(), readBuffer.size());
+        }
+
+        if(bytesRead == -1)
+        {
+            if(errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+
+            SPDLOG_ERROR("error with read()");
+            break;
+        }
+
+        if(bytesRead == 0)
+            continue;
+
+        pendingMessage.append(readBuffer.data(), static_cast<size_t>(bytesRead));
+        if(pendingMessage.size() > k_maxPendingMessageSize)
+        {
+            SPDLOG_ERROR("received AT message exceeds {} bytes", k_maxPendingMessageSize);
+            pendingMessage.clear();
+            continue;
+        }
+
+        while(true)
+        {
+            const auto messageEnd = pendingMessage.find("\r\n");
+            if(messageEnd == std::string::npos)
+                break;
+
+            if(messageEnd == 0)
+            {
+                pendingMessage.erase(0, 2);
+                continue;
+            }
+
+            const auto messageSize = messageEnd + 2;
+            newMessageNotify(pendingMessage.substr(0, messageSize));
+            pendingMessage.erase(0, messageSize);
+        }
     }
     SPDLOG_DEBUG("receiver closed");
 }
 
-void Serial::setReadEvent(std::function<void(std::string &)> &&readEventCb)
+void Serial::setReadEvent(std::function<void(const std::string &)> &&readEventCb)
 {
-    readEvent = std::move(readEventCb);
-}
+    auto expectedState = ReadEventState::unset;
+    if(!readEventState.compare_exchange_strong(expectedState, ReadEventState::setting))
+        throw std::logic_error("Serial read callback is already set");
 
-void Serial::newMessageNotify(char *buffer, const uint32_t &sizeOfMessage)
-{
-    auto newMessage = std::string(buffer, sizeOfMessage);
-    SPDLOG_TRACE("new message {}", newMessage);
-    if(readEvent)
+    try
     {
-        readEvent(newMessage);
+        readEvent = std::move(readEventCb);
+        readEventState.store(ReadEventState::set, std::memory_order_release);
+    }
+    catch(...)
+    {
+        readEventState.store(ReadEventState::unset, std::memory_order_release);
+        throw;
     }
 }
 
-void Serial::sendThread()
+void Serial::newMessageNotify(std::string newMessage)
 {
-    while(serialRunning.load())
+    SPDLOG_TRACE("new message {}", newMessage);
+    if(readEventState.load(std::memory_order_acquire) == ReadEventState::set)
+        readEvent(newMessage);
+    else
+        SPDLOG_WARN("AT message received before read callback was set: {}", newMessage);
+}
+
+void Serial::sendThread(std::stop_token stopToken)
+{
+    while(!stopToken.stop_requested())
     {
         {
             std::unique_lock<std::mutex> lockMessageWrite(messagesWriteMutex);
             sendCondition.wait_for(lockMessageWrite, std::chrono::milliseconds(k_activeTimems),
-                                   [this]() { return isNewMessageToSend; });
+                                   [this, &stopToken]() {
+                                       return stopToken.stop_requested() || isNewMessageToSend;
+                                   });
+
+            if(stopToken.stop_requested())
+                break;
 
             if(m_messagesWriteQueue.empty())
             {
@@ -206,7 +199,7 @@ void Serial::sendThread()
             bool messageWasWritten = false;
             {
                 const std::lock_guard<std::mutex> lockSerial(serialMutex);
-                messageWasWritten = writeAll(*newMessage);
+                messageWasWritten = writeAll(*newMessage, stopToken);
             }
             if(!messageWasWritten)
             {
@@ -224,13 +217,13 @@ void Serial::sendThread()
     SPDLOG_DEBUG("sender closed");
 }
 
-bool Serial::writeAll(std::string_view message)
+bool Serial::writeAll(std::string_view message, std::stop_token stopToken)
 {
     size_t bytesWritten = 0;
 
-    while(bytesWritten < message.size() && serialRunning.load())
+    while(bytesWritten < message.size() && !stopToken.stop_requested())
     {
-        const auto result = ::write(fd, message.data() + bytesWritten, message.size() - bytesWritten);
+        const auto result = ::write(fd.get(), message.data() + bytesWritten, message.size() - bytesWritten);
 
         if(result > 0)
         {

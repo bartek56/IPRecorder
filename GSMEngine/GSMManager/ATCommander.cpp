@@ -9,7 +9,7 @@
 
 namespace AT
 {
-ATCommander::ATCommander(std::string_view port) noexcept : ATCommanderScheduler(port)
+ATCommander::ATCommander(std::string_view port) : ATCommanderScheduler(port)
 {
 }
 

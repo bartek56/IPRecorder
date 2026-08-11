@@ -302,6 +302,7 @@ void ATCommanderScheduler::atCommandManager()
     if(!setConfigATE0())
     {
         SPDLOG_ERROR("failed to set ATE0");
+        atCommandManagerIsRunning.store(false);
         return;
     }
     heartBeatRefresh();
@@ -547,7 +548,8 @@ void ATCommanderScheduler::heartBeatTick()
         if(!sendSync())
         {
             SPDLOG_ERROR("Critical issue !!!");
-            std::exit(0);
+            atCommandManagerIsRunning.store(false);
+            return;
         }
 
         heartBeatRefresh();

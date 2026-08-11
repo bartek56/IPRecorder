@@ -12,7 +12,7 @@ namespace AT
     class ATCommander : public ATCommanderScheduler
     {
     public:
-        explicit ATCommander(std::string_view port) noexcept;
+        explicit ATCommander(std::string_view port);
 
         bool setConfig(std::string_view command);
         bool sendSms(const SmsRequest &sms);
