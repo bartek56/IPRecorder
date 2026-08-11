@@ -2,13 +2,9 @@ project(GSMManager)
 
 find_package (Threads REQUIRED)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(SANITIZE_OPTIONS "")
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(SANITIZE_OPTIONS "-fsanitize=address,undefined")
-endif()
 
-add_compile_options(-Wall -Wextra -Wpedantic ${SANITIZE_OPTIONS})
-include_directories(${CMAKE_SOURCE_DIR}/GSMManager ${SPDLOG_INCLUDE_DIR})
 # library for GSM serial
-add_library(${PROJECT_NAME} Serial.cpp ATCommanderScheduler.cpp ATCommander.cpp GSMManager.cpp Utils.cpp)
-target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} spdlog::spdlog ${SANITIZE_OPTIONS})
+add_library(${PROJECT_NAME} Serial.cpp ATMessageFramer.cpp ATParser.cpp ATCommanderScheduler.cpp ATCommander.cpp GSMManager.cpp Utils.cpp)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic ${GSM_SANITIZE_OPTIONS})
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} spdlog::spdlog)

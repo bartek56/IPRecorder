@@ -2,7 +2,7 @@
 #define SERIALCONFIG_HPP
 
 #if SIMULATOR == 1
-static constexpr char SERIAL_PORT[] = "/dev/pts/6";
+static constexpr char SERIAL_PORT[] = "/dev/pts/4";
 #endif
 
 #if SIMULATOR == 0

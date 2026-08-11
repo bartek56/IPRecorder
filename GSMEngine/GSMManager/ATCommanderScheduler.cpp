@@ -1,21 +1,20 @@
 #include "ATCommanderScheduler.hpp"
 #include "ATConfig.hpp"
-#include "Utils.hpp"
+#include "ATParser.hpp"
 #include "spdlog/spdlog.h"
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <stop_token>
 #include <thread>
 #include <utility>
 
 
 namespace AT
 {
-ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port), atCommandManagerIsRunning(false)
+ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
 {
     serial.setReadEvent(
             [&](const std::string &msg)
@@ -27,8 +26,7 @@ ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
                 cvATReceiver.notify_one();
             });
 
-    atCommandManagerIsRunning.store(true);
-    atThread = std::make_unique<std::thread>([this]() { this->atCommandManager(); });
+    atThread = std::jthread([this](std::stop_token stopToken) { atCommandManager(stopToken); });
 }
 
 bool ATCommanderScheduler::setConfigATE0()
@@ -297,16 +295,15 @@ bool ATCommanderScheduler::waitForMessageTimeout(std::string_view msg,
     return false;
 }
 
-void ATCommanderScheduler::atCommandManager()
+void ATCommanderScheduler::atCommandManager(std::stop_token stopToken)
 {
     if(!setConfigATE0())
     {
         SPDLOG_ERROR("failed to set ATE0");
-        atCommandManagerIsRunning.store(false);
         return;
     }
     heartBeatRefresh();
-    while(atCommandManagerIsRunning.load())
+    while(!stopToken.stop_requested())
     {
         // Requests, status etc from GSM
         while(true)
@@ -361,7 +358,8 @@ void ATCommanderScheduler::atCommandManager()
 
         if(!hasReceivedCommands())
         {
-            heartBeatTick();
+            if(!heartBeatTick())
+                return;
         }
 
 
@@ -372,36 +370,17 @@ void ATCommanderScheduler::atCommandManager()
 
 void ATCommanderScheduler::smsProcessing(const std::string &msg)
 {
-    if(msg.size() < 2 || msg.compare(msg.size() - 2, 2, "\r\n") != 0)
-    {
-        SPDLOG_ERROR("Invalid SMS header without CRLF: {}", msg);
-        return;
-    }
-
-    const auto msgWithoutCRLF = msg.substr(0, msg.size() - 2);
-    auto splitted = utils::split(msgWithoutCRLF, ",,");
-    if(splitted.size() < 2)
+    const auto smsHeader = parseSmsHeader(msg);
+    if(!smsHeader)
     {
         SPDLOG_ERROR("Invalid SMS header: {}", msg);
         return;
     }
 
-    splitted[0].erase(std::remove(splitted[0].begin(), splitted[0].end(), '"'), splitted[0].end());
-    splitted[1].erase(std::remove(splitted[1].begin(), splitted[1].end(), '"'), splitted[1].end());
-
-    const auto senderFields = utils::split(splitted[0], " ");
-    if(senderFields.size() < 2 || senderFields[1].empty())
-    {
-        SPDLOG_ERROR("Invalid SMS sender field: {}", splitted[0]);
-        return;
-    }
-
-    const auto number = senderFields[1];
     Sms sms;
-    sms.number = number;
-    auto date = splitted[1];
-    sms.dateAndTime = date;
-    SPDLOG_INFO("new SMS info: {} {}", date, number);
+    sms.number = smsHeader->number;
+    sms.dateAndTime = smsHeader->dateAndTime;
+    SPDLOG_INFO("new SMS info: {} {}", sms.dateAndTime, sms.number);
 
     // get next message from the queue (text of SMS)
     std::string msgSms;
@@ -413,10 +392,7 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
         return;
     }
     SPDLOG_INFO("new SMS text: {}", msgSms);
-    if(msgSms.size() >= 2 && msgSms.compare(msgSms.size() - 2, 2, "\r\n") == 0)
-        sms.msg = msgSms.substr(0, msgSms.size() - 2);
-    else
-        sms.msg = msgSms;
+    sms.msg = parseSmsBody(msgSms);
     {
         const std::lock_guard<std::mutex> lockSmsMutex(smsMutex);
         receivedSmses.push(std::move(sms));
@@ -426,24 +402,14 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
 void ATCommanderScheduler::callingProcessing(const std::string &msg)
 {
     // +CLIP: "+48791942336",145,,,"",0
-    auto splitted = utils::split(msg, ": ");
-    if(splitted.size() < 2)
+    auto number = parseClipNumber(msg);
+    if(!number)
     {
         SPDLOG_ERROR("Invalid call notification: {}", msg);
         return;
     }
 
-    auto callInfo = splitted[1];
-    auto splitted2 = utils::split(callInfo, ",");
-    if(splitted2.empty() || splitted2[0].size() < 2 || splitted2[0].front() != '"' ||
-       splitted2[0].back() != '"')
-    {
-        SPDLOG_ERROR("Invalid caller number: {}", callInfo);
-        return;
-    }
-
-    const auto number = splitted2[0].substr(1, splitted2[0].size() - 2);
-    SPDLOG_INFO("Calling from {} !!! ", number);
+    SPDLOG_INFO("Calling from {} !!! ", *number);
 
     ATRequest request = ATRequest();
     request.request = "ATH";
@@ -455,7 +421,7 @@ void ATCommanderScheduler::callingProcessing(const std::string &msg)
     }
     {
         const std::lock_guard lockCalls(callsMutex);
-        calls.emplace(number);
+        calls.emplace(*number);
     }
 }
 
@@ -539,7 +505,7 @@ void ATCommanderScheduler::heartBeatRefresh()
     lastRefresh = std::chrono::steady_clock::now();
 }
 
-void ATCommanderScheduler::heartBeatTick()
+bool ATCommanderScheduler::heartBeatTick()
 {
     if((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastRefresh).count()) > 10)
     {
@@ -548,17 +514,17 @@ void ATCommanderScheduler::heartBeatTick()
         if(!sendSync())
         {
             SPDLOG_ERROR("Critical issue !!!");
-            atCommandManagerIsRunning.store(false);
-            return;
+            return false;
         }
 
         heartBeatRefresh();
     }
+    return true;
 }
 
 ATCommanderScheduler::~ATCommanderScheduler()
 {
-    atCommandManagerIsRunning.store(false);
-    atThread->join();
+    atThread.request_stop();
+    cvATReceiver.notify_all();
 }
 }// namespace AT

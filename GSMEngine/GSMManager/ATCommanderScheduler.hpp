@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <stop_token>
 #include <thread>
 #include <vector>
 namespace AT
@@ -128,7 +129,6 @@ private:
                                const uint32_t &sec);
 
     // --------------------------------------------
-    Serial serial;
     bool isNewMsgFromAt = false;
 
     // received AT command
@@ -138,9 +138,9 @@ private:
     std::condition_variable cvATReceiver;
 
     // AT command thread
-    std::unique_ptr<std::thread> atThread;
-    void atCommandManager();
-    std::atomic<bool> atCommandManagerIsRunning;
+    Serial serial;
+    std::jthread atThread;
+    void atCommandManager(std::stop_token stopToken);
     void smsProcessing(const std::string &msg);
     void callingProcessing(const std::string &msg);
     bool configProcessing();
@@ -149,7 +149,7 @@ private:
     // Heart beat
     std::chrono::steady_clock::time_point lastRefresh;
     void heartBeatRefresh();
-    void heartBeatTick();
+    bool heartBeatTick();
 };
 }// namespace AT
 

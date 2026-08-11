@@ -1,3 +1,4 @@
+#include "ATMessageFramer.hpp"
 #include "Serial.hpp"
 #include "spdlog/spdlog.h"
 
@@ -66,7 +67,7 @@ void Serial::readThread(std::stop_token stopToken)
 {
     fd_set read_fds;
     std::array<char, k_bufferSize> readBuffer{};
-    std::string pendingMessage;
+    AT::ATMessageFramer messageFramer(k_maxPendingMessageSize);
 
     while(!stopToken.stop_requested())
     {
@@ -91,11 +92,11 @@ void Serial::readThread(std::stop_token stopToken)
 
         if(result == 0)
         {
-            if(!pendingMessage.empty())
+            auto pendingMessage = messageFramer.flushPending();
+            if(pendingMessage)
             {
                 SPDLOG_TRACE("message delimiter timeout");
-                newMessageNotify(std::move(pendingMessage));
-                pendingMessage.clear();
+                newMessageNotify(std::move(*pendingMessage));
             }
             continue;
         }
@@ -121,30 +122,15 @@ void Serial::readThread(std::stop_token stopToken)
         if(bytesRead == 0)
             continue;
 
-        pendingMessage.append(readBuffer.data(), static_cast<size_t>(bytesRead));
-        if(pendingMessage.size() > k_maxPendingMessageSize)
+        auto framedMessages = messageFramer.push(std::string_view(readBuffer.data(), static_cast<size_t>(bytesRead)));
+        if(framedMessages.overflow)
         {
             SPDLOG_ERROR("received AT message exceeds {} bytes", k_maxPendingMessageSize);
-            pendingMessage.clear();
             continue;
         }
 
-        while(true)
-        {
-            const auto messageEnd = pendingMessage.find("\r\n");
-            if(messageEnd == std::string::npos)
-                break;
-
-            if(messageEnd == 0)
-            {
-                pendingMessage.erase(0, 2);
-                continue;
-            }
-
-            const auto messageSize = messageEnd + 2;
-            newMessageNotify(pendingMessage.substr(0, messageSize));
-            pendingMessage.erase(0, messageSize);
-        }
+        for(auto &message : framedMessages.messages)
+            newMessageNotify(std::move(message));
     }
     SPDLOG_DEBUG("receiver closed");
 }

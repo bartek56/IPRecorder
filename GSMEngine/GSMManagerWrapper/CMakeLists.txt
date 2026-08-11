@@ -6,7 +6,8 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR}/GSMManager ${SPDLOG_INCLUDE_DIR})
 pybind11_add_module(${PROJECT_NAME} GSMManagerWrapper.cpp)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE GSMManager)
+target_link_libraries(${PROJECT_NAME} PRIVATE GSMManager ${GSM_DEBUG_SANITIZE_OPTIONS})
+target_compile_options(${PROJECT_NAME} PRIVATE ${GSM_DEBUG_SANITIZE_OPTIONS})
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=auto")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto=auto")

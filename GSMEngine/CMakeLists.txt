@@ -1,9 +1,18 @@
 cmake_minimum_required(VERSION 3.5)
 project(GSMEngine)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(GSM_ENABLE_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
+set(GSM_SANITIZE_OPTIONS "")
+if(GSM_ENABLE_SANITIZERS)
+  set(GSM_SANITIZE_OPTIONS -fsanitize=address,undefined)
+  message(STATUS "GSM sanitizers enabled")
+endif()
 
 option(SIMULATOR "Simulator" OFF)
 if(SIMULATOR)
@@ -48,3 +57,8 @@ add_subdirectory(3rdparty/pybind11)
 add_subdirectory(GSMManager)
 add_subdirectory(GSMManagerWrapper)
 add_subdirectory(GSMApp)
+if(BUILD_TESTING AND NOT GSM_ENABLE_SANITIZERS)
+  add_subdirectory(tests)
+elseif(BUILD_TESTING AND GSM_ENABLE_SANITIZERS)
+  message(STATUS "GSM unit tests disabled because GSM_ENABLE_SANITIZERS is ON")
+endif()
