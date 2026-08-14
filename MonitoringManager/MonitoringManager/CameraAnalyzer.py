@@ -1,6 +1,7 @@
 import os
 import datetime
 from Logger import Logger
+import DetectObjects
 
 class CameraAnalyzer():
     def __init__(self, dirName, cameraName, logFile):
@@ -23,10 +24,11 @@ class CameraAnalyzer():
                 Logger.ERROR("Error with Disk")
                 return "ERROR with Disk"
 
-            if (newTheNewestDir!= self.theNewestDir):  #new directory -> new day
+            if (newTheNewestDir != self.theNewestDir):  #new directory -> new day
                 self.countFiles = 0
                 self.theNewestDir=newTheNewestDir
-            newCountFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
+            dirOfPhotos = self.dirName+'/'+self.theNewestDir
+            newCountFiles = self.getListOfFiles(dirOfPhotos)
             Logger.DEBUG("old count of files:", self.countFiles)
             Logger.DEBUG("new count of files:", newCountFiles)
 
@@ -35,7 +37,7 @@ class CameraAnalyzer():
                 if not readyToNotify[0]:
                     info = "ALARM " + self.cameraName + "- log level +1"
                     self.alarmLevel+=1
-                    Logger.INFO(info)
+                    #Logger.INFO(info)
                     self.alarmLog(info)
 
             if readyToNotify[0] and self.alarmLevelActive:
@@ -48,12 +50,27 @@ class CameraAnalyzer():
                     info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - ktos nadal sie wluczy po podworku, sprawdz zdjecia"
                 elif self.alarmLevel > 4:
                     info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - robisz impreze, czy co ? bardzo duzy ruch"
+
+                subDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg"))
+                subSubDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg", subDir))
+                dirToFind = os.path.join(dirOfPhotos, "001", "jpg", subDir, subSubDir)
+                results = DetectObjects.analyzeMinuteDir(dirToFind, 2)
+                for res in results:
+                    info += " -- "
+                    for x in res["reasons"]:
+                        info += str(x)
+                        info += " "
+                    info += "-- "
+                    Logger.INFO(res)
+                Logger.INFO(info)
+
+
                 smsMessage = info
                 readyToNotify[0] = False
 
                 self.alarmLevel=0
 
-                Logger.INFO(info)
+                #Logger.INFO(info)
                 self.alarmLog(info)
             self.countFiles=newCountFiles
             return smsMessage
@@ -65,12 +82,12 @@ class CameraAnalyzer():
                 dirs.remove('DVRWorkDirectory')
             if(len(dirs)==0):
                 Logger.WARNING("Directory", dirName, "is empty")
-                return 0
+                return None
             latest_dir=max(dirs, key=os.path.basename)
             return latest_dir
         else:
             Logger.ERROR("Directory",dirName, "doesn't exist")
-            return 0
+            return None
 
     def getListOfFiles(self, dirName):
         if os.path.isdir(dirName):
@@ -79,7 +96,7 @@ class CameraAnalyzer():
                 listOfFiles += [os.path.join(dirpath, f) for f in os.listdir(dirpath) if f.endswith('.jpg')]
             return len(listOfFiles)
         else:
-            return 0
+            return None
 
     def alarmLog(self, info):
         date_time = datetime.datetime.now().strftime("%Y/%m/%d, %H:%M:%S")

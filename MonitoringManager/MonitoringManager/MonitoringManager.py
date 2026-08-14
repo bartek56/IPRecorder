@@ -66,7 +66,7 @@ def main():
     while not killer.kill_now:
         notificationManager.checkNewMessage()
         notificationManager.checkNewCall()
-        if (counter4s >= 8): # 8 x 0.5s = 4s
+        if (counter4s >= 10): # 10 x 0.5s = 5s
             Logger.DEBUG("4 sec")
             counter4s=0
             if not readyToNotifyAltanka or not readyToNotifyBrama:
