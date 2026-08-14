@@ -13,6 +13,54 @@ from ultralytics import YOLO
 
 from Logger import Logger, LogLevel
 
+
+def cropImage(frame, 
+              topPx=0, 
+              bottomPx=0, 
+              leftPx=0, 
+              rightPx=0):
+    """
+    Crop image by removing given number of pixels from each side.
+    """
+
+    h, w = frame.shape[:2]
+
+    y1 = max(0, topPx)
+    y2 = max(0, h - bottomPx)
+    x1 = max(0, leftPx)
+    x2 = max(0, w - rightPx)
+
+    # zabezpieczenie przed złymi wartościami
+    if y1 >= y2 or x1 >= x2:
+        return frame  # zwróć oryginał jeśli coś poszło źle
+
+    return frame[y1:y2, x1:x2]
+
+def cropImagePercent(frame,
+                     topPct=0.0,
+                     bottomPct=0.0,
+                     leftPct=0.0,
+                     rightPct=0.0):
+    """
+    Crop image by percentage (0.0 - 1.0).
+    Example: topPct=0.2 removes top 20% of image.
+    """
+
+    h, w = frame.shape[:2]
+
+    topPx = int(h * topPct)
+    bottomPx = int(h * bottomPct)
+    leftPx = int(w * leftPct)
+    rightPx = int(w * rightPct)
+
+    return cropImage(
+        frame,
+        topPx=topPx,
+        bottomPx=bottomPx,
+        leftPx=leftPx,
+        rightPx=rightPx
+    )
+    
 # -------------------------
 # 1) Grupowanie zdjęć w eventy (z Twojej struktury)
 # -------------------------
@@ -331,6 +379,11 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
 
     for i in idxs:
         original = frames[i]
+        if "brama" in validPaths[i]:
+            original = cropImagePercent(original, topPct=0.25, leftPct=0.20, rightPct=0.10)
+        elif "altanka" in validPaths[i]:
+            original = cropImagePercent(original, topPct=0.30, leftPct=0.15)
+ 
         resized = resizeForInference(original, maxWidth=640)
 
         dets = detectObjects(yoloModel, resized, conf=0.35)
