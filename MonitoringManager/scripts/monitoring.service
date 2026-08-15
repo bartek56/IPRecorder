@@ -5,10 +5,10 @@ After=rc-local.service
 [Service]
 Type=single
 Restart=always
-RestartSec=1800s
+RestartSec=60s
 ExecStart=MonitoringManager
-StandardOutput=append:/var/log/Monitoring.log
-StandardError=append:/var/log/Monitoring.log
+StandardOutput=append:/var/log/monitoring.log
+StandardError=append:/var/log/monitoring.log
 
 [Install]
 WantedBy=multi-user.target

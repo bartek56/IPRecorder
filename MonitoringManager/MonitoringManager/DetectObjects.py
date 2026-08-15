@@ -2,7 +2,10 @@ import os
 os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
 import re
 import json
+from collections import Counter
 from typing import List, Dict, Any, Tuple
+from datetime import datetime
+import shutil
 
 import cv2
 import numpy as np
@@ -77,7 +80,10 @@ def parseSecondFromFilename(filename: str) -> int | None:
     return sec if 0 <= sec <= 59 else None
 
 def groupImagesIntoEvents(minuteDir: str, gapSeconds: int = 2) -> List[List[str]]:
-    files = [f for f in os.listdir(minuteDir) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+    files = [
+        f for f in os.listdir(minuteDir)
+        if f.lower().endswith((".jpg", ".jpeg", ".png")) and "_det" not in f.lower()
+    ]
     items: List[Tuple[int, str]] = []
 
     for f in files:
@@ -347,6 +353,19 @@ def chooseBestDetectionFrame(candidateFrames, interestingLabels):
 
     return max(candidateFrames, key=frameScore)
 
+
+def summarizeDetectedLabels(detections: List[Dict[str, Any]]) -> Tuple[List[str], List[str], Dict[str, int]]:
+    """
+    Zwraca:
+    - labelsFound: list z duplikacjami, np. ['person', 'person', 'car']
+    - uniqueLabels: unikatowe etykiety posortowane alfabetycznie
+    - labelCounts: liczba wystąpień dla każdej etykiety
+    """
+    labelsFound = [d.get("label") for d in detections if d.get("label") is not None]
+    labelCounts = dict(sorted(Counter(labelsFound).items()))
+    uniqueLabels = sorted(labelCounts.keys())
+    return labelsFound, uniqueLabels, labelCounts
+
 # -------------------------
 # 4) Decyzja: "dlaczego event powstał"
 # -------------------------
@@ -402,14 +421,19 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
 
     # Nic nie wykryto
     if not allDets:
-        return {"reasons": ["none"], "confidence": 0.0, "details": {"labelsFound": []}}
+        return {
+            "reasons": [],
+            "confidence": 0.0,
+            "details": {"labelsFound": [], "uniqueLabels": [], "labelCounts": {}}
+        }
 
-    # reasons = unikalne etykiety YOLO z eventu (bez priorytetów)
-    labelsFound = sorted(set(d["label"] for d in allDets))
+    labelsFound, uniqueLabels, labelCounts = summarizeDetectedLabels(allDets)
     bestConf = float(max(d["conf"] for d in allDets))
 
     details = {
         "labelsFound": labelsFound,
+        "uniqueLabels": uniqueLabels,
+        "labelCounts": labelCounts,
         "bestConf": bestConf,
         "numDetections": len(allDets)
     }
@@ -418,10 +442,53 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
     if savePreviewOnDetect and candidateFrames:
         bestFrame = chooseBestDetectionFrame(candidateFrames, interestingLabels)
         outPath = buildPreviewPath(bestFrame["imgPath"])
+        
         saved = savePreview(bestFrame["frame"], bestFrame["detections"], outPath)
-        details["preview"] = saved
 
-    return {"reasons": labelsFound, "confidence": bestConf, "details": details}
+        # Additionally save a copy in /mnt/intenso/MONITORING/{brama|altanka}
+        try:
+            monitored_root = "/mnt/intenso/MONITORING"
+            category = "other_det"
+            if "brama" in bestFrame["imgPath"]:
+                category = "brama_det"
+            elif "altanka" in bestFrame["imgPath"]:
+                category = "altanka_det"
+
+            mon_dir = os.path.join(monitored_root, category)
+            os.makedirs(mon_dir, exist_ok=True)
+
+            # modification time of the original image
+            mtime = os.path.getmtime(bestFrame["imgPath"])
+            dt = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d-%H:%M:%S")
+
+            # filenames are unique (<=1 image/sec), use unique labels only
+            label_suffix = "".join(
+                f"-{re.sub(r'[^a-z0-9]+', '_', label.lower()).strip('_')}"
+                for label in uniqueLabels
+            )
+            mon_filename = f"{dt}{label_suffix}.jpg"
+            mon_path = os.path.join(mon_dir, mon_filename)
+
+            # save preview copy
+            savePreview(bestFrame["frame"], bestFrame["detections"], mon_path)
+            details["monitoring_preview"] = mon_path
+
+            # also save the original image (kopiuj plik źródłowy) with '-orig' suffix
+            try:
+                root_orig, ext_orig = os.path.splitext(mon_filename)
+                orig_filename = f"{root_orig}-orig{ext_orig}"
+                mon_orig_path = os.path.join(mon_dir, orig_filename)
+                shutil.copy2(bestFrame["imgPath"], mon_orig_path)
+                details["monitoring_original"] = mon_orig_path
+            except Exception as e2:
+                Logger.DEBUG(f"monitoring original copy failed: {e2}")
+        except Exception as e:
+            Logger.ERROR(f"monitoring save failed: {e}")
+
+        details["preview"] = saved
+        
+
+    return {"reasons": uniqueLabels, "confidence": bestConf, "details": details}
 
 
 # -------------------------
@@ -435,6 +502,7 @@ def analyzeMinuteDir(minuteDir: str, gapSeconds: int = 2):
 
     out = []
     for eventIndex, eventPaths in enumerate(events, start=1):
+        Logger.DEBUG(eventPaths)
         result = classifyEvent(eventPaths, yoloModel=model)
         out.append({
             "minuteDir": minuteDir,
@@ -449,6 +517,6 @@ def analyzeMinuteDir(minuteDir: str, gapSeconds: int = 2):
     return out
 
 if __name__ == "__main__":
-    Logger.settings(saveToFile=False, showFilename=True, logLevel=LogLevel.INFO, print=True)
-    minuteDir = "/mnt/intenso/MONITORING/brama_cam/2026-02-05/001/jpg/17/29/"
+    Logger.settings(saveToFile=False, showFilename=True, logLevel=LogLevel.DEBUG, print=True)
+    minuteDir = "/mnt/intenso/MONITORING/brama_cam/2026-08-15/001/jpg/17/07"
     analyzeMinuteDir(minuteDir, gapSeconds=3)

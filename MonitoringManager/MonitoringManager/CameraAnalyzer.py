@@ -55,15 +55,17 @@ class CameraAnalyzer():
                 subSubDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg", subDir))
                 dirToFind = os.path.join(dirOfPhotos, "001", "jpg", subDir, subSubDir)
                 results = DetectObjects.analyzeMinuteDir(dirToFind, 2)
+                tempReasons = ""
                 for res in results:
-                    info += " -- "
-                    for x in res["reasons"]:
-                        info += str(x)
-                        info += " "
-                    info += "-- "
-                    Logger.INFO(res)
+                    if len(res["reasons"]) > 0:
+                        tempReasons += "Detected: "
+                        for x in res["reasons"]:
+                            tempReasons += str(x)
+                            tempReasons += " "
+                if len(tempReasons) > 0:
+                    info += " "
+                    info += tempReasons
                 Logger.INFO(info)
-
 
                 smsMessage = info
                 readyToNotify[0] = False
