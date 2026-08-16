@@ -1,14 +1,43 @@
 import os
+import time
 import datetime
+from dataclasses import dataclass
 from Logger import Logger
 import DetectObjects
 
+@dataclass
+class CameraAnalysisResult:
+    cameraName: str
+    movementLevel: int
+    firstDetection: bool
+    message: str
+    reasons: str
+    hasReasons: bool
+    readyToNotify: bool = True
+    error: str | None = None
+
+
 class CameraAnalyzer():
-    def __init__(self, dirName, cameraName, logFile):
+    def __init__(self, dirName, cameraName, logFile, minNewFilesToDetect, notificationBlockDuration):
+        """
+        Initialize the camera analyzer.
+
+        Args:
+            dirName (str): Path to the directory containing camera recordings.
+            cameraName (str): Human-readable camera identifier used in logs and alerts.
+            logFile (str): Path to the file used for alarm logging.
+            minNewFilesToDetect (int): Minimum number of newly created files required to trigger detection (count of JPG files).
+            notificationBlockDuration (float): Time in seconds for which notifications are blocked after an alert (seconds).
+        """
         self.dirName = dirName
         self.cameraName = cameraName
-        self.theNewestDir = self.getTheNewestDayDir(self.dirName)
         self.logFile = logFile
+        self.notificationBlockDuration = notificationBlockDuration
+        self.minNewFilesToDetect = minNewFilesToDetect
+
+        self.readyToNotify = True
+        self.notificationBlockStart = None
+        self.theNewestDir = self.getTheNewestDayDir(self.dirName)
         if(self.theNewestDir == 0):
             Logger.ERROR("Error with Disk")
         else:
@@ -16,13 +45,33 @@ class CameraAnalyzer():
             self.alarmLevel = 0
             self.alarmLevelActive = False
 
-    def analyzeMoving(self, readyToNotify):
-            smsMessage = None
+    def updateNotificationBlockState(self, now):
+        if not self.readyToNotify:
+            if self.notificationBlockStart is None:
+                self.notificationBlockStart = now
+            elif now - self.notificationBlockStart >= self.notificationBlockDuration:
+                Logger.DEBUG(f"{self.cameraName}: 1 min")
+                self.notificationBlockStart = None
+                self.readyToNotify = True
+
+    def analyzeMoving(self) -> CameraAnalysisResult | None:
+            now = time.monotonic()
+            self.updateNotificationBlockState(now)
+            smsData = None
             newTheNewestDir = self.getTheNewestDayDir(self.dirName)
 
             if(newTheNewestDir == 0):
                 Logger.ERROR("Error with Disk")
-                return "ERROR with Disk"
+                return CameraAnalysisResult(
+                    cameraName=self.cameraName,
+                    movementLevel=0,
+                    firstDetection=False,
+                    message="",
+                    reasons="",
+                    hasReasons=False,
+                    readyToNotify=self.readyToNotify,
+                    error="ERROR with Disk",
+                )
 
             if (newTheNewestDir != self.theNewestDir):  #new directory -> new day
                 self.countFiles = 0
@@ -32,15 +81,16 @@ class CameraAnalyzer():
             Logger.DEBUG("old count of files:", self.countFiles)
             Logger.DEBUG("new count of files:", newCountFiles)
 
-            if(newCountFiles-self.countFiles>=2):
+            firstDetection = False
+            if(newCountFiles - self.countFiles >= self.minNewFilesToDetect):
+                firstDetection = not self.alarmLevelActive
                 self.alarmLevelActive = True
-                if not readyToNotify[0]:
+                if not self.readyToNotify:
                     info = "ALARM " + self.cameraName + "- log level +1"
                     self.alarmLevel+=1
-                    #Logger.INFO(info)
                     self.alarmLog(info)
 
-            if readyToNotify[0] and self.alarmLevelActive:
+            if self.readyToNotify and self.alarmLevelActive:
                 self.alarmLevelActive = False
                 if self.alarmLevel == 0:
                     info="ALARM " + self.cameraName
@@ -57,9 +107,9 @@ class CameraAnalyzer():
                 results = DetectObjects.analyzeMinuteDir(dirToFind, 2)
                 tempReasons = ""
                 for res in results:
-                    if len(res["reasons"]) > 0:
+                    if len(res.reasons) > 0:
                         tempReasons += "Detected: "
-                        for x in res["reasons"]:
+                        for x in res.reasons:
                             tempReasons += str(x)
                             tempReasons += " "
                 if len(tempReasons) > 0:
@@ -67,15 +117,23 @@ class CameraAnalyzer():
                     info += tempReasons
                 Logger.INFO(info)
 
-                smsMessage = info
-                readyToNotify[0] = False
+                smsData = CameraAnalysisResult(
+                    cameraName=self.cameraName,
+                    movementLevel=self.alarmLevel,
+                    firstDetection=firstDetection,
+                    message=info,
+                    reasons=tempReasons,
+                    hasReasons=bool(tempReasons),
+                    readyToNotify=self.readyToNotify,
+                )
 
-                self.alarmLevel=0
+                self.readyToNotify = False
+                self.notificationBlockStart = now
+                self.alarmLevel = 0
 
-                #Logger.INFO(info)
                 self.alarmLog(info)
             self.countFiles=newCountFiles
-            return smsMessage
+            return smsData
 
     def getTheNewestDayDir(self, dirName):
         if os.path.isdir(dirName):

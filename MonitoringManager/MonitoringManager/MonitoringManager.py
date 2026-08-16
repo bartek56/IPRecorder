@@ -42,30 +42,12 @@ def splitSMS(fileAA):
     os.remove(fileAA)
 
 
-def processCamera(camera, readyToNotify, notificationManager):
-    wrapper = [readyToNotify]
-    result = camera.analyzeMoving(wrapper)
-    readyToNotify = wrapper[0]
+def processCamera(camera, notificationManager):
+    result = camera.analyzeMoving()
 
     if result:
         Logger.DEBUG(result)
-        notificationManager.sendSMSNotification(result)
-
-    return readyToNotify
-
-
-def updateNotificationBlockState(cameraName, readyToNotify, notificationBlockStart, now, blockDuration=60.0):
-    if not readyToNotify:
-        if notificationBlockStart is None:
-            notificationBlockStart = now
-        elif now - notificationBlockStart >= blockDuration:
-            Logger.DEBUG(f"{cameraName}: 1 min")
-            notificationBlockStart = None
-            readyToNotify = True
-    else:
-        notificationBlockStart = None
-
-    return readyToNotify, notificationBlockStart
+        notificationManager.sendSMSNotification(result.message)
 
 
 def main():
@@ -76,13 +58,9 @@ def main():
 
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
-    readyToNotifyBrama = True
-    readyToNotifyAltanka = True
-    cameraAltanka = CameraAnalyzer(CONFIG.dirNameAltanka, "ALTANKA", CONFIG.ALARM_LOG_FILE)
+    cameraAltanka = CameraAnalyzer(CONFIG.dirNameAltanka, "ALTANKA", CONFIG.ALARM_LOG_FILE, 2, 60.0)
     cameraBrama = CameraAnalyzer(CONFIG.dirNameBrama, "BRAMA", CONFIG.ALARM_LOG_FILE)
     cameraCheckInterval = 5.0
-    notificationBlockStartAltanka = None
-    notificationBlockStartBrama = None
     nextCameraCheckAt = time.monotonic() + cameraCheckInterval
 
     if(cameraAltanka.theNewestDir == 0):
@@ -101,22 +79,8 @@ def main():
             nextCameraCheckAt = now + cameraCheckInterval
 
 
-            readyToNotifyAltanka, notificationBlockStartAltanka = updateNotificationBlockState(
-                "ALTANKA",
-                readyToNotifyAltanka,
-                notificationBlockStartAltanka,
-                now,
-            )
-            readyToNotifyAltanka = processCamera(cameraAltanka, readyToNotifyAltanka, notificationManager)
-            
-
-            readyToNotifyBrama, notificationBlockStartBrama = updateNotificationBlockState(
-                "BRAMA",
-                readyToNotifyBrama,
-                notificationBlockStartBrama,
-                now,
-            )
-            readyToNotifyBrama = processCamera(cameraBrama, readyToNotifyBrama, notificationManager)
+            processCamera(cameraAltanka, notificationManager)
+            processCamera(cameraBrama, notificationManager)
 
 
         if notificationManager.readyToSMS:

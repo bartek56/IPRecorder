@@ -3,6 +3,7 @@ os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
 import re
 import json
 from collections import Counter
+from dataclasses import dataclass, field
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import shutil
@@ -15,6 +16,51 @@ torch.backends.nnpack.enabled = False
 from ultralytics import YOLO
 
 from Logger import Logger, LogLevel
+
+
+@dataclass
+class DetectionInfo:
+    label: str
+    conf: float
+    box: Tuple[int, int, int, int]
+
+
+@dataclass
+class EventDetails:
+    labelsFound: List[str] = field(default_factory=list)
+    uniqueLabels: List[str] = field(default_factory=list)
+    labelCounts: Dict[str, int] = field(default_factory=dict)
+    bestConf: float = 0.0
+    numDetections: int = 0
+    preview: str | None = None
+    monitoring_preview: str | None = None
+    monitoring_original: str | None = None
+
+
+@dataclass
+class EventClassificationResult:
+    reasons: List[str]
+    confidence: float
+    details: EventDetails
+
+
+@dataclass
+class EventAnalysisRecord:
+    minuteDir: str
+    eventIndex: int
+    numImages: int
+    firstImage: str
+    lastImage: str
+    reasons: List[str]
+    confidence: float
+    details: EventDetails
+
+
+@dataclass
+class CandidateFrame:
+    imgPath: str
+    frame: Any
+    detections: List[DetectionInfo]
 
 
 def cropImage(frame, 
@@ -225,9 +271,9 @@ def drawDetectionsRed(frame, detections):
     out = frame.copy()
 
     for d in detections:
-        x1, y1, x2, y2 = d["box"]
-        label = d["label"]
-        conf = d["conf"]
+        x1, y1, x2, y2 = d.box
+        label = d.label
+        conf = d.conf
 
         # czerwony prostokąt (BGR)
         cv2.rectangle(out, (x1, y1), (x2, y2), (0, 0, 255), 2)
@@ -256,19 +302,19 @@ def savePreviewIfDetected(frame, detections, outputPath):
     cv2.imwrite(outputPath, preview)
     return True
 
-def detectObjects(model, frame, conf=0.35) -> List[Dict[str, Any]]:
+def detectObjects(model, frame, conf=0.35) -> List[DetectionInfo]:
     res = model(frame, conf=conf, verbose=False)
-    dets = []
+    dets: List[DetectionInfo] = []
     for r in res:
         for b in r.boxes:
             clsId = int(b.cls[0])
             label = model.names[clsId]
             c = float(b.conf[0])
             x1, y1, x2, y2 = map(int, b.xyxy[0].tolist())
-            objectData = {"label": label, "conf": c, "box": (x1, y1, x2, y2)}
+            objectData = DetectionInfo(label=label, conf=c, box=(x1, y1, x2, y2))
             Logger.INFO(objectData)
             dets.append(objectData)
-            
+
     return dets
 
 def filterTinyBoxes(dets, frameShape, minAreaRatio=0.012):
@@ -276,7 +322,7 @@ def filterTinyBoxes(dets, frameShape, minAreaRatio=0.012):
     minArea = (h * w) * minAreaRatio
     out = []
     for d in dets:
-        x1, y1, x2, y2 = d["box"]
+        x1, y1, x2, y2 = d.box
         area = max(0, x2 - x1) * max(0, y2 - y1)
         if area >= minArea:
             out.append(d)
@@ -285,9 +331,9 @@ def filterTinyBoxes(dets, frameShape, minAreaRatio=0.012):
 def drawDetectionsRed(frame, detections):
     out = frame.copy()
     for d in detections:
-        x1, y1, x2, y2 = d["box"]
-        label = d["label"]
-        conf = d["conf"]
+        x1, y1, x2, y2 = d.box
+        label = d.label
+        conf = d.conf
 
         cv2.rectangle(out, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
@@ -345,23 +391,23 @@ def chooseBestDetectionFrame(candidateFrames, interestingLabels):
         return None
 
     def frameScore(item):
-        dets = [d for d in item["detections"] if d["label"] in interestingLabels]
+        dets = [d for d in item.detections if d.label in interestingLabels]
         count = len(dets)
-        bestConf = max((d["conf"] for d in dets), default=-1.0)
-        sumConf = sum(d["conf"] for d in dets)
+        bestConf = max((d.conf for d in dets), default=-1.0)
+        sumConf = sum(d.conf for d in dets)
         return (count, bestConf, sumConf)
 
     return max(candidateFrames, key=frameScore)
 
 
-def summarizeDetectedLabels(detections: List[Dict[str, Any]]) -> Tuple[List[str], List[str], Dict[str, int]]:
+def summarizeDetectedLabels(detections: List[DetectionInfo]) -> Tuple[List[str], List[str], Dict[str, int]]:
     """
     Zwraca:
     - labelsFound: list z duplikacjami, np. ['person', 'person', 'car']
     - uniqueLabels: unikatowe etykiety posortowane alfabetycznie
     - labelCounts: liczba wystąpień dla każdej etykiety
     """
-    labelsFound = [d.get("label") for d in detections if d.get("label") is not None]
+    labelsFound = [d.label for d in detections if d.label is not None]
     labelCounts = dict(sorted(Counter(labelsFound).items()))
     uniqueLabels = sorted(labelCounts.keys())
     return labelsFound, uniqueLabels, labelCounts
@@ -370,7 +416,7 @@ def summarizeDetectedLabels(detections: List[Dict[str, Any]]) -> Tuple[List[str]
 # 4) Decyzja: "dlaczego event powstał"
 # -------------------------
 
-def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
+def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClassificationResult:
     # Load frames
     frames = []
     validPaths = []
@@ -381,7 +427,11 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
             validPaths.append(p)
 
     if len(frames) == 0:
-        return {"reasons": [], "confidence": 0.0, "details": {"error": "no_frames"}}
+        return EventClassificationResult(
+            reasons=[],
+            confidence=0.0,
+            details=EventDetails(labelsFound=[], uniqueLabels=[], labelCounts={}, bestConf=0.0, numDetections=0),
+        )
 
     # Klasy, które chcesz raportować i rysować (dopisz/usuń wg potrzeb)
     interestingLabels = {
@@ -393,8 +443,8 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
     # Analizuj 3 klatki dla szybkości: pierwsza/środek/ostatnia
     idxs = sorted(set([0, len(frames) // 2, len(frames) - 1]))
 
-    candidateFrames = []
-    allDets = []
+    candidateFrames: List[CandidateFrame] = []
+    allDets: List[DetectionInfo] = []
 
     for i in idxs:
         original = frames[i]
@@ -408,57 +458,57 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
         dets = detectObjects(yoloModel, resized, conf=0.35)
         #dets = filterTinyBoxes(dets, resized.shape, minAreaRatio=0.012)
 
-        detsInteresting = [d for d in dets if d["label"] in interestingLabels and d["conf"] >= 0.35]
+        detsInteresting = [d for d in dets if d.label in interestingLabels and d.conf >= 0.35]
 
         if detsInteresting:
-            candidateFrames.append({
-                "imgPath": validPaths[i],
-                "frame": resized,
-                "detections": detsInteresting
-            })
+            candidateFrames.append(CandidateFrame(
+                imgPath=validPaths[i],
+                frame=resized,
+                detections=detsInteresting,
+            ))
 
         allDets.extend(detsInteresting)
 
     # Nic nie wykryto
     if not allDets:
-        return {
-            "reasons": [],
-            "confidence": 0.0,
-            "details": {"labelsFound": [], "uniqueLabels": [], "labelCounts": {}}
-        }
+        return EventClassificationResult(
+            reasons=[],
+            confidence=0.0,
+            details=EventDetails(labelsFound=[], uniqueLabels=[], labelCounts={}, bestConf=0.0, numDetections=0),
+        )
 
     labelsFound, uniqueLabels, labelCounts = summarizeDetectedLabels(allDets)
-    bestConf = float(max(d["conf"] for d in allDets))
+    bestConf = float(max(d.conf for d in allDets))
 
-    details = {
-        "labelsFound": labelsFound,
-        "uniqueLabels": uniqueLabels,
-        "labelCounts": labelCounts,
-        "bestConf": bestConf,
-        "numDetections": len(allDets)
-    }
+    details = EventDetails(
+        labelsFound=labelsFound,
+        uniqueLabels=uniqueLabels,
+        labelCounts=labelCounts,
+        bestConf=bestConf,
+        numDetections=len(allDets),
+    )
 
     # Zapisz preview (jedna najlepsza klatka) z WSZYSTKIMI obiektami
     if savePreviewOnDetect and candidateFrames:
         bestFrame = chooseBestDetectionFrame(candidateFrames, interestingLabels)
-        outPath = buildPreviewPath(bestFrame["imgPath"])
-        
-        saved = savePreview(bestFrame["frame"], bestFrame["detections"], outPath)
+        outPath = buildPreviewPath(bestFrame.imgPath)
+
+        saved = savePreview(bestFrame.frame, bestFrame.detections, outPath)
 
         # Additionally save a copy in /mnt/intenso/MONITORING/{brama|altanka}
         try:
             monitored_root = "/mnt/intenso/MONITORING"
             category = "other_det"
-            if "brama" in bestFrame["imgPath"]:
+            if "brama" in bestFrame.imgPath:
                 category = "brama_det"
-            elif "altanka" in bestFrame["imgPath"]:
+            elif "altanka" in bestFrame.imgPath:
                 category = "altanka_det"
 
             mon_dir = os.path.join(monitored_root, category)
             os.makedirs(mon_dir, exist_ok=True)
 
             # modification time of the original image
-            mtime = os.path.getmtime(bestFrame["imgPath"])
+            mtime = os.path.getmtime(bestFrame.imgPath)
             dt = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d-%H:%M:%S")
 
             # filenames are unique (<=1 image/sec), use unique labels only
@@ -470,50 +520,51 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True):
             mon_path = os.path.join(mon_dir, mon_filename)
 
             # save preview copy
-            savePreview(bestFrame["frame"], bestFrame["detections"], mon_path)
-            details["monitoring_preview"] = mon_path
+            savePreview(bestFrame.frame, bestFrame.detections, mon_path)
+            details.monitoring_preview = mon_path
 
             # also save the original image (kopiuj plik źródłowy) with '-orig' suffix
             try:
                 root_orig, ext_orig = os.path.splitext(mon_filename)
                 orig_filename = f"{root_orig}-orig{ext_orig}"
                 mon_orig_path = os.path.join(mon_dir, orig_filename)
-                shutil.copy2(bestFrame["imgPath"], mon_orig_path)
-                details["monitoring_original"] = mon_orig_path
+                shutil.copy2(bestFrame.imgPath, mon_orig_path)
+                details.monitoring_original = mon_orig_path
             except Exception as e2:
                 Logger.DEBUG(f"monitoring original copy failed: {e2}")
         except Exception as e:
             Logger.ERROR(f"monitoring save failed: {e}")
 
-        details["preview"] = saved
-        
+        details.preview = saved
 
-    return {"reasons": uniqueLabels, "confidence": bestConf, "details": details}
+    return EventClassificationResult(reasons=uniqueLabels, confidence=bestConf, details=details)
 
 
 # -------------------------
 # 5) Uruchomienie na folderze minuty (np. 18/45/)
 # -------------------------
 
-def analyzeMinuteDir(minuteDir: str, gapSeconds: int = 2):
+def analyzeMinuteDir(minuteDir: str, gapSeconds: int = 2) -> List[EventAnalysisRecord]:
     events = groupImagesIntoEvents(minuteDir, gapSeconds=gapSeconds)
 
     model = YOLO("yolov8n.pt")  # init once
 
-    out = []
+    out: List[EventAnalysisRecord] = []
     for eventIndex, eventPaths in enumerate(events, start=1):
         Logger.DEBUG(eventPaths)
         result = classifyEvent(eventPaths, yoloModel=model)
-        out.append({
-            "minuteDir": minuteDir,
-            "eventIndex": eventIndex,
-            "numImages": len(eventPaths),
-            "firstImage": os.path.basename(eventPaths[0]),
-            "lastImage": os.path.basename(eventPaths[-1]),
-            **result
-        })
+        out.append(EventAnalysisRecord(
+            minuteDir=minuteDir,
+            eventIndex=eventIndex,
+            numImages=len(eventPaths),
+            firstImage=os.path.basename(eventPaths[0]),
+            lastImage=os.path.basename(eventPaths[-1]),
+            reasons=result.reasons,
+            confidence=result.confidence,
+            details=result.details,
+        ))
 
-    Logger.INFO(json.dumps(out, ensure_ascii=False, indent=2))
+    Logger.INFO(json.dumps([record.__dict__ for record in out], ensure_ascii=False, indent=2))
     return out
 
 if __name__ == "__main__":
