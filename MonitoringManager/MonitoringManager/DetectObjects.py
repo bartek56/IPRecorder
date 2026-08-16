@@ -3,7 +3,7 @@ os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
 import re
 import json
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import shutil
@@ -564,7 +564,7 @@ def analyzeMinuteDir(minuteDir: str, gapSeconds: int = 2) -> List[EventAnalysisR
             details=result.details,
         ))
 
-    Logger.INFO(json.dumps([record.__dict__ for record in out], ensure_ascii=False, indent=2))
+    Logger.INFO(json.dumps([asdict(record) for record in out], ensure_ascii=False, indent=2))
     return out
 
 if __name__ == "__main__":

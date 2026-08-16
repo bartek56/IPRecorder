@@ -7,14 +7,9 @@ import DetectObjects
 
 @dataclass
 class CameraAnalysisResult:
-    cameraName: str
-    movementLevel: int
-    firstDetection: bool
     message: str
     reasons: str
     hasReasons: bool
-    readyToNotify: bool = True
-    error: str | None = None
 
 
 class CameraAnalyzer():
@@ -35,72 +30,71 @@ class CameraAnalyzer():
         self.notificationBlockDuration = notificationBlockDuration
         self.minNewFilesToDetect = minNewFilesToDetect
 
-        self.readyToNotify = True
-        self.notificationBlockStart = None
+
+        self.alarmLevelCalculateStartTimestamp = None
+        self.readyToNotify = False
+        self.isAlarmLevelCalculateFinish = False
+        
         self.theNewestDir = self.getTheNewestDayDir(self.dirName)
         if(self.theNewestDir == 0):
             Logger.ERROR("Error with Disk")
         else:
-            self.countFiles = self.getListOfFiles(self.dirName+'/'+self.theNewestDir)
+            self.countFiles = 0
+            self.compute_added_files(self.theNewestDir)
             self.alarmLevel = 0
-            self.alarmLevelActive = False
+            self.isActiveAlarmLevelCalculate = False
 
     def updateNotificationBlockState(self, now):
-        if not self.readyToNotify:
-            if self.notificationBlockStart is None:
-                self.notificationBlockStart = now
-            elif now - self.notificationBlockStart >= self.notificationBlockDuration:
-                Logger.DEBUG(f"{self.cameraName}: 1 min")
-                self.notificationBlockStart = None
-                self.readyToNotify = True
+        if self.alarmLevelCalculateStartTimestamp is not None:
+            if now - self.alarmLevelCalculateStartTimestamp >= self.notificationBlockDuration:
+                Logger.DEBUG(f"{self.cameraName}: timeout {self.notificationBlockDuration}")
+                self.alarmLevelCalculateStartTimestamp = None
+                self.isAlarmLevelCalculateFinish = True
 
     def analyzeMoving(self) -> CameraAnalysisResult | None:
-            now = time.monotonic()
-            self.updateNotificationBlockState(now)
-            smsData = None
+            result = None
             newTheNewestDir = self.getTheNewestDayDir(self.dirName)
-
             if(newTheNewestDir == 0):
+                #TODO send sms about it
                 Logger.ERROR("Error with Disk")
                 return CameraAnalysisResult(
-                    cameraName=self.cameraName,
-                    movementLevel=0,
-                    firstDetection=False,
-                    message="",
-                    reasons="",
-                    hasReasons=False,
-                    readyToNotify=self.readyToNotify,
-                    error="ERROR with Disk",
+                    message="Error with Disk",
+                    reasons="Error with Disk",
+                    hasReasons=True,
                 )
+            
+            now = time.monotonic()
+            self.updateNotificationBlockState(now)
 
-            if (newTheNewestDir != self.theNewestDir):  #new directory -> new day
-                self.countFiles = 0
-                self.theNewestDir=newTheNewestDir
-            dirOfPhotos = self.dirName+'/'+self.theNewestDir
-            newCountFiles = self.getListOfFiles(dirOfPhotos)
-            Logger.DEBUG("old count of files:", self.countFiles)
-            Logger.DEBUG("new count of files:", newCountFiles)
+            addedFiles = self.compute_added_files(newTheNewestDir)
 
-            firstDetection = False
-            if(newCountFiles - self.countFiles >= self.minNewFilesToDetect):
-                firstDetection = not self.alarmLevelActive
-                self.alarmLevelActive = True
-                if not self.readyToNotify:
-                    info = "ALARM " + self.cameraName + "- log level +1"
-                    self.alarmLevel+=1
-                    self.alarmLog(info)
+            # If the alarm level calculation has not started and the number of new images exceeds the threshold,
+            # start the calculation and set the readyToNotify flag to True.
+            if self.alarmLevelCalculateStartTimestamp is None and addedFiles >= self.minNewFilesToDetect:
+                self.alarmLevelCalculateStartTimestamp = now
+                self.readyToNotify = True
+            # If the alarm level calculation has started, update the alarm level and log the information.
+            elif self.alarmLevelCalculateStartTimestamp is not None and addedFiles > 0:
+                info = "ALARM " + self.cameraName + "- log level +" + str(addedFiles)
+                self.alarmLevel += addedFiles
+                self.alarmLog(info)
+            # If the alarm level calculation has finished, log the final alarm level and prepare to notify.
+            elif (self.alarmLevelCalculateStartTimestamp is None and self.isAlarmLevelCalculateFinish):
+                self.isAlarmLevelCalculateFinish = False
+                info = "ALARM " + self.cameraName + "- log level +" + str(addedFiles)
+                self.alarmLevel += addedFiles
+                self.alarmLog(info)
+                self.readyToNotify = True
+            
+                
+            if self.readyToNotify:
+                self.readyToNotify = False
+                level = round((self.alarmLevel / int(self.notificationBlockDuration)) * 10)
+                Logger.DEBUG(f"{self.cameraName}: alarmLevel: {self.alarmLevel}, notificationBlockDuration: {int(self.notificationBlockDuration)}, level: {level}")
 
-            if self.readyToNotify and self.alarmLevelActive:
-                self.alarmLevelActive = False
-                if self.alarmLevel == 0:
-                    info="ALARM " + self.cameraName
-                elif self.alarmLevel <= 1:
-                    info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - bardzo maly ruch, mogl to byc kot"
-                elif self.alarmLevel <= 4:
-                    info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - ktos nadal sie wluczy po podworku, sprawdz zdjecia"
-                elif self.alarmLevel > 4:
-                    info="ALARM " + self.cameraName + " - POZIOM " + str(self.alarmLevel) + " - robisz impreze, czy co ? bardzo duzy ruch"
+                info = f"ALARM  {self.cameraName} - log level ({level}/10)"
 
+                dirOfPhotos = os.path.join(self.dirName, self.theNewestDir)
                 subDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg"))
                 subSubDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg", subDir))
                 dirToFind = os.path.join(dirOfPhotos, "001", "jpg", subDir, subSubDir)
@@ -117,23 +111,70 @@ class CameraAnalyzer():
                     info += tempReasons
                 Logger.INFO(info)
 
-                smsData = CameraAnalysisResult(
-                    cameraName=self.cameraName,
-                    movementLevel=self.alarmLevel,
-                    firstDetection=firstDetection,
+                result = CameraAnalysisResult(
                     message=info,
                     reasons=tempReasons,
                     hasReasons=bool(tempReasons),
-                    readyToNotify=self.readyToNotify,
                 )
 
-                self.readyToNotify = False
-                self.notificationBlockStart = now
+                self.alarmLevelCalculateStartTimestamp = now
                 self.alarmLevel = 0
 
                 self.alarmLog(info)
-            self.countFiles=newCountFiles
-            return smsData
+            # state already updated inside compute_added_files
+            return result
+
+    def compute_added_files(self, newTheNewestDir):
+        """
+        Compute number of newly added files since last check and update
+        `self.theNewestDir` and `self.countFiles` accordingly.
+
+        Returns:
+            addedFiles
+        """
+        addedFiles = 0
+        newCountFiles = 0
+        if (newTheNewestDir != self.theNewestDir):  # new directory -> new day
+            prevDir = self.theNewestDir
+            prevCount = self.countFiles if hasattr(self, 'countFiles') and self.countFiles is not None else 0
+
+            # count new files in previous dir (if exists)
+            newCountPrev = 0
+            if prevDir:
+                prevPath = os.path.join(self.dirName, prevDir)
+                c = self.getListOfFiles(prevPath)
+                newCountPrev = c if c is not None else 0
+
+            # count files in the new directory
+            newPath = os.path.join(self.dirName, newTheNewestDir)
+            newCountNew = self.getListOfFiles(newPath)
+            newCountNew = newCountNew if newCountNew is not None else 0
+
+            # newly added files are those added to previous dir since last check + all files in new dir
+            addedFiles = max(0, newCountPrev - prevCount) + newCountNew
+
+            # update to track the new newest dir counts going forward
+            self.theNewestDir = newTheNewestDir
+            self.countFiles = newCountNew
+            newCountFiles = newCountNew
+            Logger.DEBUG(self.cameraName,
+                         " count of files in new dir:", newCountNew, 
+                         " old count of files:", prevCount, 
+                         " new count of files in prev:",  newCountPrev, 
+                         " added files:", addedFiles)
+        else:
+            dirOfPhotos = os.path.join(self.dirName, self.theNewestDir)
+            nc = self.getListOfFiles(dirOfPhotos)
+            newCountFiles = nc if nc is not None else 0
+            addedFiles = newCountFiles - (self.countFiles if self.countFiles is not None else 0)
+            # update stored count
+            self.countFiles = newCountFiles
+            Logger.DEBUG(self.cameraName, 
+                         " old count of files:", self.countFiles, 
+                         " new count of files:", newCountFiles, 
+                         " added files:", addedFiles)
+
+        return addedFiles
 
     def getTheNewestDayDir(self, dirName):
         if os.path.isdir(dirName):

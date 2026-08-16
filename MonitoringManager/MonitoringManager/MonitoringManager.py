@@ -53,13 +53,13 @@ def processCamera(camera, notificationManager):
 def main():
     killer = Killer()
 
-    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.INFO, print=True)
+    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.DEBUG, print=True)
     Logger.INFO(" ---------------- Start Monitoring ------------------ ")
 
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
     cameraAltanka = CameraAnalyzer(CONFIG.dirNameAltanka, "ALTANKA", CONFIG.ALARM_LOG_FILE, 2, 60.0)
-    cameraBrama = CameraAnalyzer(CONFIG.dirNameBrama, "BRAMA", CONFIG.ALARM_LOG_FILE)
+    cameraBrama = CameraAnalyzer(CONFIG.dirNameBrama, "BRAMA", CONFIG.ALARM_LOG_FILE, 2, 60.0)
     cameraCheckInterval = 5.0
     nextCameraCheckAt = time.monotonic() + cameraCheckInterval
 
@@ -98,7 +98,7 @@ def main():
                 notificationManager.readyToSMS=False
                 break # next sms on other cycle, when GSM will ready to SMS
 
-        time.sleep(0.1)
+        time.sleep(0.2)
 
     notificationManager.saveToFile()
     Logger.INFO("-------------------- exit program ---------------------")
