@@ -30,7 +30,6 @@ class CameraAnalyzer():
         self.notificationBlockDuration = notificationBlockDuration
         self.minNewFilesToDetect = minNewFilesToDetect
 
-
         self.alarmLevelCalculateStartTimestamp = None
         self.readyToNotify = False
         self.isAlarmLevelCalculateFinish = False
@@ -68,30 +67,31 @@ class CameraAnalyzer():
 
             addedFiles = self.compute_added_files(newTheNewestDir)
 
-            # If the alarm level calculation has not started and the number of new images exceeds the threshold,
-            # start the calculation and set the readyToNotify flag to True.
-            if self.alarmLevelCalculateStartTimestamp is None and addedFiles >= self.minNewFilesToDetect:
+            # If the alarm level calculation has not started and the number of added files meets the threshold
+            # or the previous calculation has finished, start the alarm level calculation.
+            if (self.alarmLevelCalculateStartTimestamp is None and 
+                    (self.isAlarmLevelCalculateFinish or addedFiles >= self.minNewFilesToDetect)):
                 self.alarmLevelCalculateStartTimestamp = now
+                self.alarmLevel += addedFiles
                 self.readyToNotify = True
-                info = "ALARM " + self.cameraName + " - ready to notify " + str(addedFiles)
-                self.alarmLog(info)
+
+                info = ""
+                if self.isAlarmLevelCalculateFinish:
+                    self.isAlarmLevelCalculateFinish = False
+                    info = "ALARM " + self.cameraName + " - alarm level calculation finished, log level " + str(self.alarmLevel)
+                elif addedFiles >= self.minNewFilesToDetect:
+                    info = "ALARM " + self.cameraName + " - start analyze, log level " + str(self.alarmLevel)
+ 
                 Logger.DEBUG(info)
+                self.alarmLog(info)
             # If the alarm level calculation has started, update the alarm level and log the information.
             elif self.alarmLevelCalculateStartTimestamp is not None and addedFiles > 0:
                 info = "ALARM " + self.cameraName + "- log level +" + str(addedFiles)
                 self.alarmLevel += addedFiles
                 self.alarmLog(info)
                 Logger.DEBUG(info)
-            # If the alarm level calculation has finished, log the final alarm level and prepare to notify.
-            elif (self.alarmLevelCalculateStartTimestamp is None and self.isAlarmLevelCalculateFinish):
-                self.isAlarmLevelCalculateFinish = False
-                self.alarmLevel += addedFiles
-                info = "ALARM " + self.cameraName + "- log level final" + str(self.alarmLevel)
-                self.alarmLog(info)
-                self.readyToNotify = True
-                Logger.DEBUG(info)
-            
-                
+               
+
             if self.readyToNotify:
                 self.readyToNotify = False
                 level = round((self.alarmLevel / int(self.notificationBlockDuration)) * 10)
