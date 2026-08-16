@@ -53,7 +53,7 @@ def processCamera(camera, notificationManager):
 def main():
     killer = Killer()
 
-    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.DEBUG, print=True)
+    Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.INFO, print=True)
     Logger.INFO(" ---------------- Start Monitoring ------------------ ")
 
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
@@ -75,7 +75,7 @@ def main():
 
         now = time.monotonic()
         if now >= nextCameraCheckAt:
-            Logger.DEBUG(f"{cameraCheckInterval} sec")
+            Logger.DEBUG(f"interval {cameraCheckInterval} sec")
             nextCameraCheckAt = now + cameraCheckInterval
 
 
