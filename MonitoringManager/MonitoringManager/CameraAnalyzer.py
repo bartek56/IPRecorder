@@ -10,6 +10,7 @@ class CameraAnalysisResult:
     message: str
     reasons: str
     hasReasons: bool
+    level: int
 
 
 class CameraAnalyzer():
@@ -72,15 +73,18 @@ class CameraAnalyzer():
             if (self.alarmLevelCalculateStartTimestamp is None and 
                     (self.isAlarmLevelCalculateFinish or addedFiles >= self.minNewFilesToDetect)):
                 self.alarmLevel += addedFiles
-                self.readyToNotify = True
 
-                info = ""
+                info = "ALARM " + self.cameraName
                 if self.isAlarmLevelCalculateFinish:
                     self.isAlarmLevelCalculateFinish = False
-                    info = "ALARM " + self.cameraName + " - alarm level calculation finished, log level " + str(self.alarmLevel) + " "
-                if addedFiles >= self.minNewFilesToDetect:
+                    info += " - alarm level calculation finished, log level " + str(self.alarmLevel)
+                if self.alarmLevel >= self.minNewFilesToDetect:
                     self.alarmLevelCalculateStartTimestamp = now
-                    info += "ALARM " + self.cameraName + " - start analyze, log level " + str(self.alarmLevel)
+                    self.readyToNotify = True
+                    info += " - start notification block for " + str(self.notificationBlockDuration) + " sec"
+                else:
+                    info += " clear alarm level"
+                    self.alarmLevel = 0
  
                 Logger.INFO(info)
                 self.alarmLog(info)
@@ -94,10 +98,12 @@ class CameraAnalyzer():
 
             if self.readyToNotify:
                 self.readyToNotify = False
-                level = round((self.alarmLevel / int(self.notificationBlockDuration)) * 10)
-                Logger.DEBUG(f"{self.cameraName}: alarmLevel: {self.alarmLevel}, notificationBlockDuration: {int(self.notificationBlockDuration)}, level: {level}")
 
-                info = f"ALARM  {self.cameraName} - log level ({level}/10)"
+                info = f"ALARM {self.cameraName}"
+                level = round((self.alarmLevel / int(self.notificationBlockDuration)) * 10)
+                if level > 0:
+                    info += f" - level {level}/10"
+                Logger.DEBUG(f"{self.cameraName}: alarmLevel: {self.alarmLevel}, notificationBlockDuration: {int(self.notificationBlockDuration)}, level: {level}")
 
                 dirOfPhotos = os.path.join(self.dirName, self.theNewestDir)
                 subDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg"))
@@ -120,6 +126,7 @@ class CameraAnalyzer():
                     message=info,
                     reasons=tempReasons,
                     hasReasons=bool(tempReasons),
+                    level=level
                 )
 
                 self.alarmLevel = 0
