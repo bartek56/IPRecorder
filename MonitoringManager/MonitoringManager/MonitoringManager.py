@@ -41,6 +41,33 @@ def splitSMS(fileAA):
 
     os.remove(fileAA)
 
+
+def processCamera(camera, readyToNotify, notificationManager):
+    wrapper = [readyToNotify]
+    result = camera.analyzeMoving(wrapper)
+    readyToNotify = wrapper[0]
+
+    if result:
+        Logger.DEBUG(result)
+        notificationManager.sendSMSNotification(result)
+
+    return readyToNotify
+
+
+def updateNotificationBlockState(cameraName, readyToNotify, notificationBlockStart, now, blockDuration=60.0):
+    if not readyToNotify:
+        if notificationBlockStart is None:
+            notificationBlockStart = now
+        elif now - notificationBlockStart >= blockDuration:
+            Logger.DEBUG(f"{cameraName}: 1 min")
+            notificationBlockStart = None
+            readyToNotify = True
+    else:
+        notificationBlockStart = None
+
+    return readyToNotify, notificationBlockStart
+
+
 def main():
     killer = Killer()
 
@@ -49,61 +76,48 @@ def main():
 
     notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
 
-    counter4s=0
-    counter1min=0
-
     readyToNotifyBrama = True
     readyToNotifyAltanka = True
     cameraAltanka = CameraAnalyzer(CONFIG.dirNameAltanka, "ALTANKA", CONFIG.ALARM_LOG_FILE)
     cameraBrama = CameraAnalyzer(CONFIG.dirNameBrama, "BRAMA", CONFIG.ALARM_LOG_FILE)
+    cameraCheckInterval = 5.0
+    notificationBlockStartAltanka = None
+    notificationBlockStartBrama = None
+    nextCameraCheckAt = time.monotonic() + cameraCheckInterval
 
     if(cameraAltanka.theNewestDir == 0):
         Logger.ERROR("Error with Disk")
         notificationManager.sendSMSAdmin("Error with Disk")
-        exit()
+        return
 
     Logger.INFO("-------------- Initialization was finished -----------------")
     while not killer.kill_now:
         notificationManager.checkNewMessage()
         notificationManager.checkNewCall()
-        if (counter4s >= 10): # 10 x 0.5s = 5s
-            Logger.DEBUG("4 sec")
-            counter4s=0
-            if not readyToNotifyAltanka or not readyToNotifyBrama:
-                counter1min+=1
-                if(counter1min >= 10): # 10 x 6s = 1min
-                    Logger.DEBUG("1 min")
-                    counter1min = 0
-                    readyToNotifyAltanka = True
-                    readyToNotifyBrama = True
 
-            wrapper = [readyToNotifyAltanka]
-            result = cameraAltanka.analyzeMoving(wrapper)
-            readyToNotifyAltanka = wrapper[0]
-
-            if result:
-                Logger.DEBUG(result)
-                notificationManager.sendSMSNotification(result)
-                if "ERROR" in result:
-                    notificationManager.sendSMSAdmin(result)
-                    Logger.ERROR(result)
-                    os.system("reboot now")
-                    break
-
-            wrapper = [readyToNotifyBrama]
-            result = cameraBrama.analyzeMoving(wrapper)
-            readyToNotifyBrama = wrapper[0]
-            if result:
-                Logger.DEBUG(result)
-                notificationManager.sendSMSNotification(result)
-                if "ERROR" in result:
-                    notificationManager.sendSMSAdmin(result)
-                    Logger.ERROR(result)
-                    os.system('reboot now')
-                    break
+        now = time.monotonic()
+        if now >= nextCameraCheckAt:
+            Logger.DEBUG(f"{cameraCheckInterval} sec")
+            nextCameraCheckAt = now + cameraCheckInterval
 
 
-        counter4s=counter4s+1
+            readyToNotifyAltanka, notificationBlockStartAltanka = updateNotificationBlockState(
+                "ALTANKA",
+                readyToNotifyAltanka,
+                notificationBlockStartAltanka,
+                now,
+            )
+            readyToNotifyAltanka = processCamera(cameraAltanka, readyToNotifyAltanka, notificationManager)
+            
+
+            readyToNotifyBrama, notificationBlockStartBrama = updateNotificationBlockState(
+                "BRAMA",
+                readyToNotifyBrama,
+                notificationBlockStartBrama,
+                now,
+            )
+            readyToNotifyBrama = processCamera(cameraBrama, readyToNotifyBrama, notificationManager)
+
 
         if notificationManager.readyToSMS:
             listSMSFiles = os.listdir(CONFIG.SMSDir)
@@ -120,7 +134,7 @@ def main():
                 notificationManager.readyToSMS=False
                 break # next sms on other cycle, when GSM will ready to SMS
 
-        time.sleep(0.5)
+        time.sleep(0.1)
 
     notificationManager.saveToFile()
     Logger.INFO("-------------------- exit program ---------------------")
