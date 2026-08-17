@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import os
-os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
 import re
 import json
 from collections import Counter
@@ -8,14 +9,52 @@ from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import shutil
 
-import cv2
-import numpy as np
-
-import torch
-torch.backends.nnpack.enabled = False
-from ultralytics import YOLO
-
 from .Logger import Logger, LogLevel
+
+
+class DetectObjectsAnalyzer:
+    def __init__(self):
+        os.environ.setdefault("TORCH_CPP_LOG_LEVEL", "ERROR")
+
+        import cv2
+        import numpy as np
+        import torch
+        from ultralytics import YOLO
+
+        torch.backends.nnpack.enabled = False
+
+        self.cv2 = cv2
+        self.np = np
+        self.torch = torch
+        self.YOLO = YOLO
+
+        globals()["cv2"] = cv2
+        globals()["np"] = np
+        globals()["torch"] = torch
+        globals()["YOLO"] = YOLO
+
+    def analyzeMinuteDir(self, minuteDir: str, gapSeconds: int = 2) -> List[EventAnalysisRecord]:
+        events = groupImagesIntoEvents(minuteDir, gapSeconds=gapSeconds)
+
+        model = self.YOLO("yolov8n.pt")  # init once
+
+        out: List[EventAnalysisRecord] = []
+        for eventIndex, eventPaths in enumerate(events, start=1):
+            Logger.DEBUG(eventPaths)
+            result = classifyEvent(eventPaths, yoloModel=model)
+            out.append(EventAnalysisRecord(
+                minuteDir=minuteDir,
+                eventIndex=eventIndex,
+                numImages=len(eventPaths),
+                firstImage=os.path.basename(eventPaths[0]),
+                lastImage=os.path.basename(eventPaths[-1]),
+                reasons=result.reasons,
+                confidence=result.confidence,
+                details=result.details,
+            ))
+
+        Logger.INFO(json.dumps([asdict(record) for record in out], ensure_ascii=False, indent=2))
+        return out
 
 
 @dataclass
@@ -550,27 +589,9 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClass
 # -------------------------
 
 def analyzeMinuteDir(minuteDir: str, gapSeconds: int = 2) -> List[EventAnalysisRecord]:
-    events = groupImagesIntoEvents(minuteDir, gapSeconds=gapSeconds)
+    engine = DetectObjectsAnalyzer()
+    return engine.analyzeMinuteDir(minuteDir, gapSeconds=gapSeconds)
 
-    model = YOLO("yolov8n.pt")  # init once
-
-    out: List[EventAnalysisRecord] = []
-    for eventIndex, eventPaths in enumerate(events, start=1):
-        Logger.DEBUG(eventPaths)
-        result = classifyEvent(eventPaths, yoloModel=model)
-        out.append(EventAnalysisRecord(
-            minuteDir=minuteDir,
-            eventIndex=eventIndex,
-            numImages=len(eventPaths),
-            firstImage=os.path.basename(eventPaths[0]),
-            lastImage=os.path.basename(eventPaths[-1]),
-            reasons=result.reasons,
-            confidence=result.confidence,
-            details=result.details,
-        ))
-
-    Logger.INFO(json.dumps([asdict(record) for record in out], ensure_ascii=False, indent=2))
-    return out
 
 if __name__ == "__main__":
     Logger.settings(saveToFile=False, showFilename=True, logLevel=LogLevel.DEBUG, print=True)

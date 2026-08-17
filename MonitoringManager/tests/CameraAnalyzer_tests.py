@@ -2,9 +2,9 @@ import shutil
 import tempfile
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import MagicMock
 
 from MonitoringManager.CameraAnalyzer import CameraAnalyzer
-import MonitoringManager.DetectObjects as DetectObjects
 
 
 class CameraAnalyzerTests(TestCase):
@@ -20,6 +20,9 @@ class CameraAnalyzerTests(TestCase):
         self.day.mkdir()
         self.nested_dir = self.day / "001" / "jpg" / "001" / "001"
         self.nested_dir.mkdir(parents=True)
+
+        self.mock_analyze_minute_dir = MagicMock()
+        self.mock_analyze_minute_dir.analyzeMinuteDir.return_value = []
         print("setUp")
 
     def tearDown(self):
@@ -38,7 +41,14 @@ class CameraAnalyzerTests(TestCase):
         for i in range(2):
             self._touch(self.day / f"{i:02d}_a.jpg")
 
-        ca = CameraAnalyzer(str(self.base), "CAM", str(self.log_file), minNewFilesToDetect=1, notificationBlockDuration=60)
+        ca = CameraAnalyzer(
+            str(self.base),
+            "CAM",
+            str(self.log_file),
+            minNewFilesToDetect=1,
+            notificationBlockDuration=60,
+            detect_objects=self.mock_analyze_minute_dir,
+        )
 
         self._touch(self.day / "59_new.jpg")
 
@@ -46,13 +56,21 @@ class CameraAnalyzerTests(TestCase):
 
         self.assertIsNotNone(result)
         self.assertEqual(ca.countFiles, 3)
+        self.mock_analyze_minute_dir.analyzeMinuteDir.assert_called_once()
 
     def test_CountNewFiles_AcrossPrevAndNewDir(self):
         day1 = self.base / "2026-08-15"
         for i in range(3):
             self._touch(day1 / f"{i:02d}_a.jpg")
 
-        ca = CameraAnalyzer(str(self.base), "CAM", str(self.log_file), minNewFilesToDetect=2, notificationBlockDuration=60)
+        ca = CameraAnalyzer(
+            str(self.base),
+            "CAM",
+            str(self.log_file),
+            minNewFilesToDetect=2,
+            notificationBlockDuration=60,
+            detect_objects=self.mock_analyze_minute_dir,
+        )
 
         self._touch(day1 / "10_new1.jpg")
         self._touch(day1 / "11_new2.jpg")
@@ -62,56 +80,71 @@ class CameraAnalyzerTests(TestCase):
         for i in range(4):
             self._touch(day2 / f"{i:02d}_b.jpg")
 
+        nested_day2 = day2 / "001" / "jpg" / "001" / "001"
+        nested_day2.mkdir(parents=True)
+        self._touch(nested_day2 / "frame.jpg")
+
         result = ca.analyzeMoving()
 
         self.assertIsNotNone(result)
         self.assertEqual(ca.theNewestDir, "2026-08-16")
-        self.assertEqual(ca.countFiles, 4)
+        self.assertEqual(ca.countFiles, 5)
+        self.mock_analyze_minute_dir.analyzeMinuteDir.assert_called_once()
 
     def test_compute_scaled_movement_level_basic_cases(self):
-        ca = CameraAnalyzer("/tmp", "CAM", "log.txt", minNewFilesToDetect=1, notificationBlockDuration=60)
+        ca = CameraAnalyzer("/tmp", "CAM", "log.txt", minNewFilesToDetect=1, notificationBlockDuration=60, detect_objects=self.mock_analyze_minute_dir)
 
         scaled, max_possible = ca.compute_scaled_movement_level(0)
 
-        self.assertEqual(max_possible, 60)
+        self.assertEqual(max_possible, 10)
         self.assertEqual(scaled, 0)
 
-        scaled2, _ = ca.compute_scaled_movement_level(max_possible)
+        scaled2, _ = ca.compute_scaled_movement_level(80)
         self.assertEqual(scaled2, 10)
 
     def test_compute_scaled_movement_level_with_higher_threshold(self):
-        ca = CameraAnalyzer("/tmp", "CAM", "log.txt", minNewFilesToDetect=30, notificationBlockDuration=60)
+        ca = CameraAnalyzer("/tmp", "CAM", "log.txt", minNewFilesToDetect=30, notificationBlockDuration=60, detect_objects=self.mock_analyze_minute_dir)
 
         scaled, max_possible = ca.compute_scaled_movement_level(1)
 
-        self.assertEqual(max_possible, 60)
+        self.assertEqual(max_possible, 10)
         self.assertGreaterEqual(scaled, 0)
         self.assertLessEqual(scaled, 2)
 
     def test_analyzeMoving_NoAlarm_WhenBelowThreshold(self):
         self._touch(self.day / "01.jpg")
-        ca = CameraAnalyzer(str(self.base), "CAM", str(self.log_file), minNewFilesToDetect=3, notificationBlockDuration=60)
+        ca = CameraAnalyzer(
+            str(self.base),
+            "CAM",
+            str(self.log_file),
+            minNewFilesToDetect=3,
+            notificationBlockDuration=60,
+            detect_objects=self.mock_analyze_minute_dir,
+        )
 
         result = ca.analyzeMoving()
 
         self.assertIsNone(result)
         self.assertEqual(ca.alarmLevel, 0)
         self.assertFalse(ca.readyToNotify)
+        self.mock_analyze_minute_dir.analyzeMinuteDir.assert_not_called()
 
     def test_analyzeMoving_Alarm_WhenThresholdReached(self):
         self._touch(self.day / "01.jpg")
         self._touch(self.day / "02.jpg")
-        ca = CameraAnalyzer(str(self.base), "CAM", str(self.log_file), minNewFilesToDetect=2, notificationBlockDuration=60)
+        ca = CameraAnalyzer(
+            str(self.base),
+            "CAM",
+            str(self.log_file),
+            minNewFilesToDetect=2,
+            notificationBlockDuration=60,
+            detect_objects=self.mock_analyze_minute_dir,
+        )
 
         self._touch(self.day / "03.jpg")
         self._touch(self.day / "04.jpg")
 
-        original = DetectObjects.analyzeMinuteDir
-        DetectObjects.analyzeMinuteDir = lambda *args, **kwargs: []
-        try:
-            result = ca.analyzeMoving()
-        finally:
-            DetectObjects.analyzeMinuteDir = original
+        result = ca.analyzeMoving()
 
         self.assertIsNotNone(result)
         self.assertTrue(result.message.startswith("ALARM CAM"))
@@ -119,3 +152,4 @@ class CameraAnalyzerTests(TestCase):
         self.assertFalse(result.hasReasons)
         self.assertEqual(ca.alarmLevel, 0)
         self.assertFalse(ca.readyToNotify)
+        self.mock_analyze_minute_dir.analyzeMinuteDir.assert_called_once()

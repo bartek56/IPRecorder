@@ -6,7 +6,7 @@ static constexpr char SERIAL_PORT[] = "/dev/pts/4";
 #endif
 
 #if SIMULATOR == 0
-static constexpr char SERIAL_PORT[] = "/dev/ttyAMA0";
+static constexpr char SERIAL_PORT[] = "/dev/ttyUSB0";
 #endif
 
 #endif // SERIALCONFIG_HPP

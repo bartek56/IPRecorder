@@ -3,7 +3,7 @@ import time
 import datetime
 from dataclasses import dataclass
 from .Logger import Logger
-from . import DetectObjects
+from .DetectObjects import DetectObjectsAnalyzer
 
 @dataclass
 class CameraAnalysisResult:
@@ -14,7 +14,7 @@ class CameraAnalysisResult:
 
 
 class CameraAnalyzer():
-    def __init__(self, dirName, cameraName, logFile, minNewFilesToDetect, notificationBlockDuration):
+    def __init__(self, dirName, cameraName, logFile, minNewFilesToDetect, notificationBlockDuration, detect_objects=None):
         """
         Initialize the camera analyzer.
 
@@ -24,12 +24,14 @@ class CameraAnalyzer():
             logFile (str): Path to the file used for alarm logging.
             minNewFilesToDetect (int): Minimum number of newly created files required to trigger detection (count of JPG files).
             notificationBlockDuration (float): Time in seconds for which notifications are blocked after an alert (seconds).
+            detect_objects: Optional DetectObjectsAnalyzer instance. Defaults to a real instance.
         """
         self.dirName = dirName
         self.cameraName = cameraName
         self.logFile = logFile
         self.notificationBlockDuration = notificationBlockDuration
         self.minNewFilesToDetect = minNewFilesToDetect
+        self.detect_objects = detect_objects if detect_objects is not None else DetectObjectsAnalyzer()
 
         self.alarmLevelCalculateStartTimestamp = None
         self.readyToNotify = False
@@ -142,7 +144,7 @@ class CameraAnalyzer():
                     return result
 
                 dirToFind = os.path.join(dirOfPhotos, "001", "jpg", subDir, subSubDir)
-                results = DetectObjects.analyzeMinuteDir(dirToFind, 2)
+                results = self.detect_objects.analyzeMinuteDir(dirToFind, 2)
                 tempReasons = ""
                 for res in results:
                     if len(res.reasons) > 0:
