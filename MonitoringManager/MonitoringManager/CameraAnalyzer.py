@@ -81,6 +81,8 @@ class CameraAnalyzer():
             self.updateNotificationBlockState(now)
 
             addedFiles = self.compute_added_files(newTheNewestDir)
+            firstNotification = False
+        
 
             # If the alarm level calculation has not started and the number of added files meets the threshold
             # or the previous calculation has finished, start the alarm level calculation.
@@ -88,7 +90,10 @@ class CameraAnalyzer():
                     (self.isAlarmLevelCalculateFinish or addedFiles >= self.minNewFilesToDetect)):
                 self.alarmLevel += addedFiles
 
-                info = "ALARM " + self.cameraName
+                if self.isAlarmLevelCalculateFinish is False and addedFiles >= self.minNewFilesToDetect:
+                    firstNotification = True
+
+                info = self.cameraName
                 if self.isAlarmLevelCalculateFinish:
                     self.isAlarmLevelCalculateFinish = False
                     info += " - alarm level calculation finished, log level " + str(self.alarmLevel)
@@ -101,22 +106,19 @@ class CameraAnalyzer():
                     self.alarmLevel = 0
  
                 Logger.INFO(info)
-                self.alarmLog(info)
             # If the alarm level calculation has started, update the alarm level and log the information.
             elif self.alarmLevelCalculateStartTimestamp is not None and addedFiles > 0:
-                info = "ALARM " + self.cameraName + "- log level +" + str(addedFiles)
                 self.alarmLevel += addedFiles
-                self.alarmLog(info)
-                Logger.INFO(info)
+                Logger.INFO(self.cameraName + " - log level +" + str(addedFiles))
 
             if self.readyToNotify:
                 self.readyToNotify = False
 
                 info = f"ALARM {self.cameraName}"
-                level, max_possible = self.compute_scaled_movement_level(self.alarmLevel)
-                if level > 0:
-                    info += f" - level {level}/{max_possible}"
-                Logger.DEBUG(f"{self.cameraName}: alarmLevel: {self.alarmLevel}, notificationBlockDuration: {int(self.notificationBlockDuration)}, level: {level}")
+                if firstNotification:
+                    info += f" - level {self.alarmLevel}/5"
+                else:
+                    info += f" - level {self.alarmLevel}/{int(self.notificationBlockDuration)}"
 
                 dirOfPhotos = os.path.join(self.dirName, self.theNewestDir)
                 subDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg"))
@@ -125,7 +127,7 @@ class CameraAnalyzer():
                         message=info,
                         reasons="",
                         hasReasons=False,
-                        level=level,
+                        level=self.alarmLevel,
                     )
                     self.alarmLevel = 0
                     self.alarmLog(info)
@@ -137,7 +139,7 @@ class CameraAnalyzer():
                         message=info,
                         reasons="",
                         hasReasons=False,
-                        level=level,
+                        level=self.alarmLevel,
                     )
                     self.alarmLevel = 0
                     self.alarmLog(info)
@@ -161,7 +163,7 @@ class CameraAnalyzer():
                     message=info,
                     reasons=tempReasons,
                     hasReasons=bool(tempReasons),
-                    level=level
+                    level=self.alarmLevel
                 )
 
                 self.alarmLevel = 0

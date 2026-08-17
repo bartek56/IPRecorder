@@ -53,7 +53,7 @@ class DetectObjectsAnalyzer:
                 details=result.details,
             ))
 
-        Logger.INFO(json.dumps([asdict(record) for record in out], ensure_ascii=False, indent=2))
+        Logger.DEBUG(json.dumps([asdict(record) for record in out], ensure_ascii=False, indent=2))
         return out
 
 
@@ -351,7 +351,7 @@ def detectObjects(model, frame, conf=0.35) -> List[DetectionInfo]:
             c = float(b.conf[0])
             x1, y1, x2, y2 = map(int, b.xyxy[0].tolist())
             objectData = DetectionInfo(label=label, conf=c, box=(x1, y1, x2, y2))
-            Logger.INFO(objectData)
+            Logger.DEBUG(objectData)
             dets.append(objectData)
 
     return dets
