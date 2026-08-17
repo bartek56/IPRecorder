@@ -54,13 +54,13 @@ class CameraAnalyzer():
     def compute_scaled_movement_level(self, raw_level):
         max_possible = max(1, int(self.notificationBlockDuration))
         if raw_level <= 0:
-            return 0, max_possible
+            return 0, 10
         if raw_level >= max_possible:
-            return 10, max_possible
+            return 10, 10
 
         scaled = round((raw_level / max_possible) * 10)
         scaled = max(1, min(10, scaled))
-        return scaled, max_possible
+        return scaled, 10
 
     def analyzeMoving(self) -> CameraAnalysisResult | None:
             result = None
