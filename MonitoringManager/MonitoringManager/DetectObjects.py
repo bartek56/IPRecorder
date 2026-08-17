@@ -15,7 +15,7 @@ import torch
 torch.backends.nnpack.enabled = False
 from ultralytics import YOLO
 
-from Logger import Logger, LogLevel
+from .Logger import Logger, LogLevel
 
 
 @dataclass
@@ -407,7 +407,12 @@ def summarizeDetectedLabels(detections: List[DetectionInfo]) -> Tuple[List[str],
     - uniqueLabels: unikatowe etykiety posortowane alfabetycznie
     - labelCounts: liczba wystąpień dla każdej etykiety
     """
-    labelsFound = [d.label for d in detections if d.label is not None]
+    labelsFound = []
+    for detection in detections:
+        label = detection.get("label") if isinstance(detection, dict) else getattr(detection, "label", None)
+        if label is not None:
+            labelsFound.append(label)
+
     labelCounts = dict(sorted(Counter(labelsFound).items()))
     uniqueLabels = sorted(labelCounts.keys())
     return labelsFound, uniqueLabels, labelCounts

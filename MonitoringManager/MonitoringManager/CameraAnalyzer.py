@@ -2,15 +2,15 @@ import os
 import time
 import datetime
 from dataclasses import dataclass
-from Logger import Logger
-import DetectObjects
+from .Logger import Logger
+from . import DetectObjects
 
 @dataclass
 class CameraAnalysisResult:
     message: str
     reasons: str
-    hasReasons: bool
-    level: int
+    hasReasons: bool = False
+    level: int = 0
 
 
 class CameraAnalyzer():
@@ -36,7 +36,7 @@ class CameraAnalyzer():
         self.isAlarmLevelCalculateFinish = False
         
         self.theNewestDir = self.getTheNewestDayDir(self.dirName)
-        if(self.theNewestDir == 0):
+        if self.theNewestDir in (0, None):
             Logger.ERROR("Error with Disk")
         else:
             self.countFiles = 0
@@ -51,18 +51,30 @@ class CameraAnalyzer():
                 self.alarmLevelCalculateStartTimestamp = None
                 self.isAlarmLevelCalculateFinish = True
 
+    def compute_scaled_movement_level(self, raw_level):
+        max_possible = max(1, int(self.notificationBlockDuration))
+        if raw_level <= 0:
+            return 0, max_possible
+        if raw_level >= max_possible:
+            return 10, max_possible
+
+        scaled = round((raw_level / max_possible) * 10)
+        scaled = max(1, min(10, scaled))
+        return scaled, max_possible
+
     def analyzeMoving(self) -> CameraAnalysisResult | None:
             result = None
             newTheNewestDir = self.getTheNewestDayDir(self.dirName)
-            if(newTheNewestDir == 0):
+            if newTheNewestDir is None or newTheNewestDir == 0:
                 #TODO send sms about it
                 Logger.ERROR("Error with Disk")
                 return CameraAnalysisResult(
                     message="Error with Disk",
                     reasons="Error with Disk",
                     hasReasons=True,
+                    level=0,
                 )
-            
+
             now = time.monotonic()
             self.updateNotificationBlockState(now)
 
@@ -94,20 +106,41 @@ class CameraAnalyzer():
                 self.alarmLevel += addedFiles
                 self.alarmLog(info)
                 Logger.INFO(info)
-               
 
             if self.readyToNotify:
                 self.readyToNotify = False
 
                 info = f"ALARM {self.cameraName}"
-                level = round((self.alarmLevel / int(self.notificationBlockDuration)) * 10)
+                level, max_possible = self.compute_scaled_movement_level(self.alarmLevel)
                 if level > 0:
-                    info += f" - level {level}/10"
+                    info += f" - level {level}/{max_possible}"
                 Logger.DEBUG(f"{self.cameraName}: alarmLevel: {self.alarmLevel}, notificationBlockDuration: {int(self.notificationBlockDuration)}, level: {level}")
 
                 dirOfPhotos = os.path.join(self.dirName, self.theNewestDir)
                 subDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg"))
+                if subDir is None:
+                    result = CameraAnalysisResult(
+                        message=info,
+                        reasons="",
+                        hasReasons=False,
+                        level=level,
+                    )
+                    self.alarmLevel = 0
+                    self.alarmLog(info)
+                    return result
+
                 subSubDir = self.getTheNewestDayDir(os.path.join(dirOfPhotos, "001", "jpg", subDir))
+                if subSubDir is None:
+                    result = CameraAnalysisResult(
+                        message=info,
+                        reasons="",
+                        hasReasons=False,
+                        level=level,
+                    )
+                    self.alarmLevel = 0
+                    self.alarmLog(info)
+                    return result
+
                 dirToFind = os.path.join(dirOfPhotos, "001", "jpg", subDir, subSubDir)
                 results = DetectObjects.analyzeMinuteDir(dirToFind, 2)
                 tempReasons = ""
@@ -189,7 +222,7 @@ class CameraAnalyzer():
 
     def getTheNewestDayDir(self, dirName):
         if os.path.isdir(dirName):
-            dirs = [d for d in os.listdir(dirName)]
+            dirs = [d for d in os.listdir(dirName) if os.path.isdir(os.path.join(dirName, d))]
             if "DVRWorkDirectory" in dirs:
                 dirs.remove('DVRWorkDirectory')
             if(len(dirs)==0):

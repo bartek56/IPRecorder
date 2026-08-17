@@ -1,6 +1,6 @@
 from enum import Enum
 import os
-from Logger import Logger
+from .Logger import Logger
 
 
 class NumberType(Enum):

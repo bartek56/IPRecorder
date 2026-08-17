@@ -2,11 +2,11 @@ import signal
 import time
 import os
 
-from NotificationManager import NotificationManager
-from CameraAnalyzer import CameraAnalyzer
-from Logger import Logger
-from Logger import LogLevel
-import Config as CONFIG
+from .NotificationManager import NotificationManager
+from .CameraAnalyzer import CameraAnalyzer
+from .Logger import Logger
+from .Logger import LogLevel
+from . import Config as CONFIG
 
 class Killer:
     kill_now = False

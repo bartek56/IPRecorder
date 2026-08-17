@@ -3,7 +3,7 @@ import urllib.request
 import sh
 import subprocess
 
-from Config import dirNameBrama
+from . import Config as CONFIG
 
 class IpRecorderStatus:
     def __init__(self):
@@ -48,7 +48,7 @@ class IpRecorderStatus:
     def checkStatus(self):
         actualStatus = True
         info = ""
-        diskIsMounted = os.path.isdir(dirNameBrama)
+        diskIsMounted = os.path.isdir(CONFIG.dirNameBrama)
         if not diskIsMounted:
             info += "disk is not mounted"
             actualStatus = False

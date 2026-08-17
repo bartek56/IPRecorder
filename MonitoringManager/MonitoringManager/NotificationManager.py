@@ -1,10 +1,10 @@
 import os
 import time
 
-from Contacts import Contacts
-from StatusManager import IpRecorderStatus
+from .Contacts import Contacts
+from .StatusManager import IpRecorderStatus
 # from mailManager import Mail
-from Logger import Logger
+from .Logger import Logger
 import GSMEngine as GSMSerial
 
 

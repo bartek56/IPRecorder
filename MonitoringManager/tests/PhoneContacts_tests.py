@@ -1,9 +1,9 @@
 import unittest
 from unittest import TestCase
 import os
-from PhoneContacts.PhoneContacts import Contacts
-from PhoneContacts.PhoneContacts import Number
-from PhoneContacts.PhoneContacts import Email
+from MonitoringManager.Contacts import Contacts
+from MonitoringManager.Contacts import Number
+from MonitoringManager.Contacts import Email
 
 class PhoneContactsTests(TestCase):
     @classmethod
