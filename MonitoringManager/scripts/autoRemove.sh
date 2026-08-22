@@ -43,26 +43,31 @@ fi
 TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
 echo "$TIMESTAMP finished autoremove script" >> $LOGFILE
 
-# Clean up detection result files to keep exactly $maxDetectionFiles
-# altanka_det
-countFiles=$(find $MAINDIR/$ALTANKA_DET -maxdepth 1 -type f 2>/dev/null | wc -l)
-if [ $countFiles -gt $maxDetectionFiles ]; then
-    filesToRemove=$(($countFiles-$maxDetectionFiles))
-    find $MAINDIR/$ALTANKA_DET -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | head -${filesToRemove} | cut -d' ' -f2- | while read file; do
-        rm -f "$file"
-    done
-    echo "$TIMESTAMP ALTANKA_DET: removed $filesToRemove files, now $maxDetectionFiles)" >> $LOGFILE
-fi
+# Clean up detection result files to keep exactly $maxDetectionFiles.
+# The files are stored in date-named subdirectories, so we must scan recursively.
+clean_detection_dir() {
+    local dir="$1"
+    local label="$2"
 
-# brama_det
-countFiles=$(find $MAINDIR/$BRAMA_DET -maxdepth 1 -type f 2>/dev/null | wc -l)
-if [ $countFiles -gt $maxDetectionFiles ]; then
-    filesToRemove=$(($countFiles-$maxDetectionFiles))
-    find $MAINDIR/$BRAMA_DET -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | head -${filesToRemove} | cut -d' ' -f2- | while read file; do
-        rm -f "$file"
-    done
-    echo "$TIMESTAMP BRAMA_DET: removed $filesToRemove files, now $maxDetectionFiles)" >> $LOGFILE
-fi
+    if [ ! -d "$dir" ]; then
+        return
+    fi
+
+    countFiles=$(find "$dir" -type f 2>/dev/null | wc -l)
+    if [ "$countFiles" -gt "$maxDetectionFiles" ]; then
+        filesToRemove=$((countFiles - maxDetectionFiles))
+        find "$dir" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | head -n "$filesToRemove" | cut -d' ' -f2- | while IFS= read -r file; do
+            rm -f -- "$file"
+        done
+        echo "$TIMESTAMP ${label}: removed $filesToRemove files, now $maxDetectionFiles" >> $LOGFILE
+    fi
+
+    # remove empty date folders left behind after the cleanup
+    find "$dir" -depth -type d -empty -delete 2>/dev/null
+}
+
+clean_detection_dir "$MAINDIR/$ALTANKA_DET" "ALTANKA_DET"
+clean_detection_dir "$MAINDIR/$BRAMA_DET" "BRAMA_DET"
 
 # a lot of logs here. clear it daily
 #truncate -s 0 /var/log/proftpd/vroot.log

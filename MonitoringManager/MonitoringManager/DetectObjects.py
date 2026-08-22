@@ -560,7 +560,7 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClass
 
         saved = savePreview(bestFrame.frame, bestFrame.detections, outPath)
 
-        # Additionally save a copy in /mnt/intenso/MONITORING/{brama|altanka}
+        # Additionally save a copy in /mnt/intenso/MONITORING/{brama|altanka}/{YYYY-MM-DD}
         monitored_root = "/mnt/intenso/MONITORING"
         category = "other_det"
         if "brama" in bestFrame.imgPath:
@@ -568,16 +568,17 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClass
         elif "altanka" in bestFrame.imgPath:
             category = "altanka_det"
 
-        mon_dir = os.path.join(monitored_root, category)
-        os.makedirs(mon_dir, exist_ok=True)
-
         # modification time of the original image
         mtime = os.path.getmtime(bestFrame.imgPath)
-        dt = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d-%H:%M:%S")
+        dt = datetime.fromtimestamp(mtime)
+        date_dir = dt.strftime("%Y-%m-%d")
+        mon_dir = os.path.join(monitored_root, category, date_dir)
+        os.makedirs(mon_dir, exist_ok=True)
 
         # filenames are unique (<=1 image/sec), include detected label and confidence%
+        full_dt = dt.strftime("%Y-%m-%d-%H:%M:%S")
         label_suffix = buildLabelConfidenceSuffix(bestFrame.detections)
-        mon_filename = f"{dt}{label_suffix}.jpg"
+        mon_filename = f"{full_dt}{label_suffix}.jpg"
         mon_path = os.path.join(mon_dir, mon_filename)
 
         details.monitoring_preview = mon_path
