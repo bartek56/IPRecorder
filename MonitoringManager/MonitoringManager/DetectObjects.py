@@ -306,6 +306,36 @@ def resizeForInference(frame, maxWidth=640):
     newH = int(h * scale)
     return cv2.resize(frame, (newW, newH), interpolation=cv2.INTER_LINEAR)
 
+
+def classifyImageLighting(frame) -> str:
+    """
+    Rozpoznaje, czy obraz jest bardziej dzienny czy nocny/IR.
+    Dzień: jasny obraz z większą średnią jasnością i wyższym kontrastem.
+    Noc/IR: ciemny obraz z dużą ilością pikseli poniżej 40/255.
+    """
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    mean = float(gray.mean())
+    std = float(gray.std())
+    darkPixelsRatio = float(np.mean(gray < 40))
+    brightPixelsRatio = float(np.mean(gray > 180))
+
+    if mean < 90 and std < 45:
+        return "night"
+    if mean < 110 and darkPixelsRatio > 0.45:
+        return "night"
+    if mean < 120 and brightPixelsRatio < 0.10:
+        return "night"
+    return "day"
+
+
+def getDetectionConfidenceThreshold(frame) -> float:
+    """Ustawia próg wykrycia zależnie od typu zdjęcia."""
+    sceneType = classifyImageLighting(frame)
+    if sceneType == "night":
+        return 0.35
+    return 0.60
+
+
 def drawDetectionsRed(frame, detections):
     out = frame.copy()
 
@@ -519,11 +549,12 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClass
             original = cropImagePercent(original, topPct=0.30, leftPct=0.15)
  
         resized = resizeForInference(original, maxWidth=640)
+        threshold = getDetectionConfidenceThreshold(resized)
 
-        dets = detectObjects(yoloModel, resized, conf=0.35)
+        dets = detectObjects(yoloModel, resized, conf=threshold)
         #dets = filterTinyBoxes(dets, resized.shape, minAreaRatio=0.012)
 
-        detsInteresting = [d for d in dets if d.label in interestingLabels and d.conf >= 0.35]
+        detsInteresting = [d for d in dets if d.label in interestingLabels and d.conf >= threshold]
 
         if detsInteresting:
             candidateFrames.append(CandidateFrame(
