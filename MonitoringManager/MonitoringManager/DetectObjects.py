@@ -456,6 +456,27 @@ def summarizeDetectedLabels(detections: List[DetectionInfo]) -> Tuple[List[str],
     uniqueLabels = sorted(labelCounts.keys())
     return labelsFound, uniqueLabels, labelCounts
 
+
+def buildLabelConfidenceSuffix(detections: List[DetectionInfo]) -> str:
+    """Tworzy sufiks typu '-person-80-dog-75' z najlepszym confidence dla każdej etykiety."""
+    bestByLabel: Dict[str, float] = {}
+    for det in detections:
+        label = det.label
+        previous = bestByLabel.get(label, 0.0)
+        bestByLabel[label] = max(previous, float(det.conf))
+
+    if not bestByLabel:
+        return ""
+
+    parts: List[str] = []
+    for label, conf in sorted(bestByLabel.items()):
+        confPct = max(0, min(100, int(round(conf * 100))))
+        slug = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
+        if slug:
+            parts.append(f"{slug}-{confPct}")
+
+    return "".join(f"-{part}" for part in parts)
+
 # -------------------------
 # 4) Decyzja: "dlaczego event powstał"
 # -------------------------
@@ -540,46 +561,36 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClass
         saved = savePreview(bestFrame.frame, bestFrame.detections, outPath)
 
         # Additionally save a copy in /mnt/intenso/MONITORING/{brama|altanka}
+        monitored_root = "/mnt/intenso/MONITORING"
+        category = "other_det"
+        if "brama" in bestFrame.imgPath:
+            category = "brama_det"
+        elif "altanka" in bestFrame.imgPath:
+            category = "altanka_det"
+
+        mon_dir = os.path.join(monitored_root, category)
+        os.makedirs(mon_dir, exist_ok=True)
+
+        # modification time of the original image
+        mtime = os.path.getmtime(bestFrame.imgPath)
+        dt = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d-%H:%M:%S")
+
+        # filenames are unique (<=1 image/sec), include detected label and confidence%
+        label_suffix = buildLabelConfidenceSuffix(bestFrame.detections)
+        mon_filename = f"{dt}{label_suffix}.jpg"
+        mon_path = os.path.join(mon_dir, mon_filename)
+
+        details.monitoring_preview = mon_path
+        Logger.DEBUG(f"monitoring preview path: {mon_path}")
+
+        # also save the original image (kopiuj plik źródłowy) with '-orig' suffix
         try:
-            monitored_root = "/mnt/intenso/MONITORING"
-            category = "other_det"
-            if "brama" in bestFrame.imgPath:
-                category = "brama_det"
-            elif "altanka" in bestFrame.imgPath:
-                category = "altanka_det"
+            shutil.copy2(bestFrame.imgPath, mon_path)
+            details.monitoring_original = mon_path
+        except Exception as e2:
+            Logger.ERROR(f"monitoring original copy failed: {e2}")
 
-            mon_dir = os.path.join(monitored_root, category)
-            os.makedirs(mon_dir, exist_ok=True)
-
-            # modification time of the original image
-            mtime = os.path.getmtime(bestFrame.imgPath)
-            dt = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d-%H:%M:%S")
-
-            # filenames are unique (<=1 image/sec), use unique labels only
-            label_suffix = "".join(
-                f"-{re.sub(r'[^a-z0-9]+', '_', label.lower()).strip('_')}"
-                for label in uniqueLabels
-            )
-            mon_filename = f"{dt}{label_suffix}.jpg"
-            mon_path = os.path.join(mon_dir, mon_filename)
-
-            # save preview copy
-            savePreview(bestFrame.frame, bestFrame.detections, mon_path)
-            details.monitoring_preview = mon_path
-
-            # also save the original image (kopiuj plik źródłowy) with '-orig' suffix
-            try:
-                root_orig, ext_orig = os.path.splitext(mon_filename)
-                orig_filename = f"{root_orig}-orig{ext_orig}"
-                mon_orig_path = os.path.join(mon_dir, orig_filename)
-                shutil.copy2(bestFrame.imgPath, mon_orig_path)
-                details.monitoring_original = mon_orig_path
-            except Exception as e2:
-                Logger.DEBUG(f"monitoring original copy failed: {e2}")
-        except Exception as e:
-            Logger.ERROR(f"monitoring save failed: {e}")
-
-        details.preview = saved
+    details.preview = saved
 
     return EventClassificationResult(reasons=uniqueLabels, confidence=bestConf, details=details)
 
