@@ -69,7 +69,7 @@ def main():
         return
 
     Logger.INFO("-------------- Initialization was finished -----------------")
-    while not killer.kill_now:
+    while not killer.kill_now and notificationManager.is_alive():
         notificationManager.checkNewMessage()
         notificationManager.checkNewCall()
 
@@ -78,10 +78,8 @@ def main():
             Logger.DEBUG(f"interval {cameraCheckInterval} sec")
             nextCameraCheckAt = now + cameraCheckInterval
 
-
             processCamera(cameraAltanka, notificationManager)
             processCamera(cameraBrama, notificationManager)
-
 
         if notificationManager.readyToSMS:
             listSMSFiles = os.listdir(CONFIG.SMSDir)
@@ -95,11 +93,15 @@ def main():
                     continue
                 notificationManager.sendSMSAdmin(text)
                 os.remove(smsFile)
-                notificationManager.readyToSMS=False
-                break # next sms on other cycle, when GSM will ready to SMS
+                notificationManager.readyToSMS = False
+                break  # next sms on other cycle, when GSM will ready to SMS
 
         time.sleep(0.2)
 
+    if not notificationManager.is_alive():
+        Logger.WARNING("GSM module reported shutdown; stopping monitoring loop gracefully.")
+
+    notificationManager.shutdown()
     notificationManager.saveToFile()
     Logger.INFO("-------------------- exit program ---------------------")
 

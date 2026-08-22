@@ -331,9 +331,9 @@ def classifyImageLighting(frame) -> str:
 def getDetectionConfidenceThreshold(frame) -> float:
     """Ustawia próg wykrycia zależnie od typu zdjęcia."""
     sceneType = classifyImageLighting(frame)
-    if sceneType == "night":
-        return 0.35
-    return 0.60
+    if sceneType == "day":
+        return 0.55
+    return 0.35
 
 
 def drawDetectionsRed(frame, detections):

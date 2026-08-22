@@ -22,5 +22,7 @@ PYBIND11_MODULE(GSMEngine, m)
             .def("sendSms", &GSMManager::sendSms)
             .def("sendSmsSync", &GSMManager::sendSmsSync)
             .def("getSms", &GSMManager::getSms)
-            .def("getCall", &GSMManager::getCall);
+            .def("getCall", &GSMManager::getCall)
+            .def("shutdown", &GSMManager::shutdown)
+            .def("is_alive", &GSMManager::isAlive);
 }

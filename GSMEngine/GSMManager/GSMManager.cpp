@@ -39,6 +39,16 @@ std::optional<Call> GSMManager::getCall()
     return atCommander.getLastCall();
 }
 
+void GSMManager::shutdown()
+{
+    atCommander.shutdown();
+}
+
+bool GSMManager::isAlive() const
+{
+    return atCommander.isAlive();
+}
+
 bool GSMManager::setDefaultConfig()
 {
     auto setConfig = [&](const std::string &command)

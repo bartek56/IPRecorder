@@ -29,6 +29,21 @@ ATCommanderScheduler::ATCommanderScheduler(std::string_view port) : serial(port)
     atThread = std::jthread([this](std::stop_token stopToken) { atCommandManager(stopToken); });
 }
 
+void ATCommanderScheduler::shutdown()
+{
+    if(!isAliveFlag.load(std::memory_order_acquire))
+        return;
+
+    isAliveFlag.store(false, std::memory_order_release);
+    atThread.request_stop();
+    cvATReceiver.notify_all();
+}
+
+bool ATCommanderScheduler::isAlive() const
+{
+    return isAliveFlag.load(std::memory_order_acquire);
+}
+
 bool ATCommanderScheduler::setConfigATE0()
 {
     SPDLOG_DEBUG("Set Config ATE0");
@@ -359,7 +374,11 @@ void ATCommanderScheduler::atCommandManager(std::stop_token stopToken)
         if(!hasReceivedCommands())
         {
             if(!heartBeatTick())
+            {
+                SPDLOG_ERROR("Heart beat timeout. Stopping AT command manager gracefully.");
+                shutdown();
                 return;
+            }
         }
 
 
@@ -524,7 +543,6 @@ bool ATCommanderScheduler::heartBeatTick()
 
 ATCommanderScheduler::~ATCommanderScheduler()
 {
-    atThread.request_stop();
-    cvATReceiver.notify_all();
+    shutdown();
 }
 }// namespace AT

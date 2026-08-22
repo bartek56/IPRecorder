@@ -40,6 +40,12 @@ class NotificationManager():
                     surname = userNameAndSurnameList[1]
                     self.usersList.append(ActiveUser(name, surname))
 
+    def is_alive(self):
+        return self.gsmManager.is_alive()
+
+    def shutdown(self):
+        self.gsmManager.shutdown()
+
     def showActiveContacts(self):
         for x in self.usersList:
             print(x.name, x.surname)
@@ -127,6 +133,8 @@ class NotificationManager():
         return contact
 
     def checkNewMessage(self):
+        if not self.is_alive():
+            return
         sms = self.gsmManager.getSms()
         if sms is None:
             return
@@ -151,6 +159,8 @@ class NotificationManager():
                          "Nie wiem, czego ode mnie zadasz")
 
     def checkNewCall(self):
+        if not self.is_alive():
+            return
         call = self.gsmManager.getCall()
         if call is None:
             return

@@ -94,6 +94,9 @@ public:
     ATCommanderScheduler(std::string_view port);
     ~ATCommanderScheduler();
 
+    void shutdown();
+    bool isAlive() const;
+
 protected:
     // requests AT command
     std::mutex atRequestsMutex;
@@ -140,6 +143,7 @@ private:
     // AT command thread
     Serial serial;
     std::jthread atThread;
+    std::atomic<bool> isAliveFlag{true};
     void atCommandManager(std::stop_token stopToken);
     void smsProcessing(const std::string &msg);
     void callingProcessing(const std::string &msg);
