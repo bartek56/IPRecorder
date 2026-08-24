@@ -4,7 +4,37 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock
 
+import cv2
+import numpy as np
+
+import MonitoringManager.DetectObjects as detect_objects_module
 from MonitoringManager.CameraAnalyzer import CameraAnalyzer
+
+
+detect_objects_module.cv2 = cv2
+detect_objects_module.np = np
+
+
+class DayNightImageClassificationTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.files_dir = Path(__file__).parent / "files"
+        print("setUpClass")
+
+    def _classify(self, image_path: Path) -> str:
+        img = cv2.imread(str(image_path))
+        self.assertIsNotNone(img, f"Nie udało się wczytać obrazu: {image_path}")
+        return detect_objects_module.classifyImageLighting(img)
+
+    def test_day_images_are_classified_as_day(self):
+        for image_path in sorted(self.files_dir.glob("*day.jpg")):
+            with self.subTest(image=image_path.name):
+                self.assertEqual(self._classify(image_path), "day", f"Zdjęcie {image_path.name} powinno być rozpoznane jako dzień")
+
+    def test_night_images_are_classified_as_night(self):
+        for image_path in sorted(self.files_dir.glob("*night.jpg")):
+            with self.subTest(image=image_path.name):
+                self.assertEqual(self._classify(image_path), "night", f"Zdjęcie {image_path.name} powinno być rozpoznane jako noc")
 
 
 class CameraAnalyzerTests(TestCase):
