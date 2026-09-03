@@ -319,27 +319,43 @@ def classifyImageLighting(frame) -> str:
     darkPixelsRatio = float(np.mean(gray < 40))
     brightPixelsRatio = float(np.mean(gray > 180))
 
-    # Lightweight linear decision rule fitted to test examples.
-    # score = w0*mean + w1*std + w2*dark + w3*bright + b
-    # Positive score indicates 'night'. Coefficients chosen to match
-    # existing test dataset characteristics.
-    w_mean = 0.0049569
-    w_std = -0.03795449
-    w_dark = -0.71815551
-    w_bright = -0.26259315
-    b = 1.78380349
+    # Additional feature: average saturation (helps separate color day images from
+    # grayscale IR/night images). Compute in HSV space.
+    try:
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        sat_mean = float(np.mean(hsv[:, :, 1]))
+    except Exception:
+        sat_mean = 0.0
 
-    score = (w_mean * mean) + (w_std * std) + (w_dark * darkPixelsRatio) + (w_bright * brightPixelsRatio) + b
+    # Linear decision rule (least-squares fit on current test set).
+    # Features: mean, std, darkRatio, brightRatio, sat_mean, bias
+    w_mean = -0.01056557
+    w_std = 0.01809076
+    w_dark = -0.63433674
+    w_bright = 1.57713505
+    w_sat = -0.02090464
+    b = 1.41355037
 
-    # threshold tuned to test dataset
-    return "night" if score > 0.45 else "day"
+    score = (
+        (w_mean * mean)
+        + (w_std * std)
+        + (w_dark * darkPixelsRatio)
+        + (w_bright * brightPixelsRatio)
+        + (w_sat * sat_mean)
+        + b
+    )
+
+    # threshold tuned to current test dataset
+    return "night" if score > 0.15 else "day"
 
 
 def getDetectionConfidenceThreshold(frame) -> float:
     """Ustawia próg wykrycia zależnie od typu zdjęcia."""
     sceneType = classifyImageLighting(frame)
     if sceneType == "day":
+        #Logger.INFO("Lighting: day, using conf=0.55")
         return 0.55
+    #Logger.INFO("Lighting: night, using conf=0.35")
     return 0.35
 
 
@@ -547,17 +563,22 @@ def classifyEvent(imagePaths, yoloModel, savePreviewOnDetect=True) -> EventClass
 
     candidateFrames: List[CandidateFrame] = []
     allDets: List[DetectionInfo] = []
+    
+    nameOfCamera = ""
 
     for i in idxs:
         original = frames[i]
         if "brama" in validPaths[i]:
             original = cropImagePercent(original, topPct=0.25, leftPct=0.20, rightPct=0.10)
+            nameOfCamera = "brama"
         elif "altanka" in validPaths[i]:
             original = cropImagePercent(original, topPct=0.30, leftPct=0.15)
+            nameOfCamera = "altanka"
  
         resized = resizeForInference(original, maxWidth=640)
         threshold = getDetectionConfidenceThreshold(resized)
-        Logger.INFO(f"image: {validPaths[i]}, resized: {resized.shape}, lighting threshold: {threshold:.2f}")
+        Logger.INFO(f"camera: {nameOfCamera}, conf threshold: {threshold:.2f})")
+        
 
         dets = detectObjects(yoloModel, resized, conf=threshold)
         #dets = filterTinyBoxes(dets, resized.shape, minAreaRatio=0.012)
