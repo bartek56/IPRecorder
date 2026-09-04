@@ -1,4 +1,4 @@
-[![CircleCI](https://img.shields.io/circleci/build/github/bartek56/iprecorder)](https://app.circleci.com/pipelines/github/bartek56/iprecorder)
+[![CircleCI](https://img.shields.io/circleci/build/github/bartek56/iprecorder)](https://app.circleci.com/pipelines/gh/bartek56/IPRecorder)
 
 
 # IpRecorder
