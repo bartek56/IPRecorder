@@ -13,10 +13,30 @@ jobs:
           command: |
             git submodule update --init --recursive
 
+      - run:
+          name: Install system build deps for GSMEngine
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+
       - persist_to_workspace:
           root: .
           paths:
             - .
+  
+  build_gsm_app:
+    docker:
+      - image: cimg/python:3.11
+    working_directory: ~/project
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Build GSMApp
+          command: |
+            cmake -S . -B build
+            cmake --build build
 
   build_gsm_engine:
     docker:
@@ -27,10 +47,10 @@ jobs:
           at: ~/project
 
       - run:
-          name: Install system build deps for GSMEngine
+          name: Build GSMApp
           command: |
-            sudo apt-get update
-            sudo apt-get install -y cmake build-essential
+            cmake -S . -B build
+            cmake --build build
 
       - run:
           name: Build GSMEngine
@@ -78,6 +98,9 @@ workflows:
   test_workflow:
     jobs:
       - prepare
+      - build_gsm_app:
+          requires:
+            - prepare
       - build_gsm_engine:
           requires:
             - prepare
