@@ -38,6 +38,34 @@ jobs:
             cd GSMEngine
             cmake -S . -B build
             cmake --build build
+            # Run CTest to execute tests
+            cd build
+            ctest --output-on-failure || true
+            # Produce GoogleTest XMLs for each test executable
+            mkdir -p ../test-results/gsmengine
+            for exe in $(find . -type f -executable -name '*Tests*' -print); do
+              name=$(basename "$exe")
+              echo "Running $exe -> ../test-results/gsmengine/${name}.xml"
+              ./$exe --gtest_output=xml:../test-results/gsmengine/${name}.xml || true
+            done
+
+      - run:
+          name: Prepare artifacts directory
+          command: |
+            mkdir -p ~/project/artifacts/gsmengine
+            # copy test results and build outputs if present
+            if [ -d GSMEngine/test-results ]; then
+              cp -r GSMEngine/test-results ~/project/artifacts/gsmengine/ || true
+            fi
+            if [ -d GSMEngine/build ]; then
+              cp -r GSMEngine/build ~/project/artifacts/gsmengine/build || true
+            fi
+
+      - store_test_results:
+          path: artifacts/gsmengine/test-results
+
+      - store_artifacts:
+          path: artifacts/gsmengine
 
   build_gsm_engine:
     docker:
