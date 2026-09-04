@@ -1,3 +1,6 @@
+[![CircleCI](https://img.shields.io/circleci/build/github/bartek56/iprecorder)](https://app.circleci.com/pipelines/github/bartek56/iprecorder)
+
+
 # IpRecorder
 
 IPRecorder is a software to verify new image (created by IP Camera during moving) and inform by SMS about it
