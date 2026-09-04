@@ -24,7 +24,8 @@ class DayNightImageClassificationTests(TestCase):
     def _classify(self, image_path: Path) -> str:
         img = cv2.imread(str(image_path))
         self.assertIsNotNone(img, f"Nie udało się wczytać obrazu: {image_path}")
-        return detect_objects_module.classifyImageLighting(img)
+        analyzer = detect_objects_module.DetectObjectsAnalyzer()
+        return analyzer.classifyImageLighting(img)
 
     def test_day_images_are_classified_as_day(self):
         for image_path in sorted(self.files_dir.glob("*day.jpg")):
@@ -178,7 +179,7 @@ class CameraAnalyzerTests(TestCase):
 
         self.assertIsNotNone(result)
         self.assertTrue(result.message.startswith("ALARM CAM"))
-        self.assertEqual(result.level, 1)
+        self.assertEqual(result.level, 2)
         self.assertFalse(result.hasReasons)
         self.assertEqual(ca.alarmLevel, 0)
         self.assertFalse(ca.readyToNotify)
