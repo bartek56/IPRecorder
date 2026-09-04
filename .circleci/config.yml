@@ -13,12 +13,6 @@ jobs:
           command: |
             git submodule update --init --recursive
 
-      - run:
-          name: Install system build deps for GSMEngine
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y cmake build-essential
-
       - persist_to_workspace:
           root: .
           paths:
@@ -33,7 +27,13 @@ jobs:
           at: ~/project
 
       - run:
-          name: Build GSMApp
+          name: Install system build deps for GSMEngine
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake python3-dev
+
+      - run:
+          name: Build GSMApp by cmake
           command: |
             cd GSMEngine
             cmake -S . -B build
@@ -48,7 +48,13 @@ jobs:
           at: ~/project
 
       - run:
-          name: Build GSMEngine
+          name: Install system build deps for GSMEngine
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+
+      - run:
+          name: Build GSMEngine by pip
           command: |
             cd GSMEngine
             python -m pip install -e .
