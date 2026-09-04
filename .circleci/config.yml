@@ -13,18 +13,6 @@ jobs:
           command: |
             git submodule update --init --recursive
 
-      - run:
-          name: Install system build deps for GSMEngine
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y cmake build-essential
-
-      - run:
-          name: Install Python dependencies
-          command: |
-            python -m pip install --upgrade pip
-            python -m pip install -r MonitoringManager/requirements_tests.txt
-
       - persist_to_workspace:
           root: .
           paths:
@@ -37,6 +25,12 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/project
+
+      - run:
+          name: Install system build deps for GSMEngine
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
 
       - run:
           name: Build GSMEngine
@@ -53,9 +47,10 @@ jobs:
           at: ~/project
 
       - run:
-          name: Install MonitoringManager package
+          name: Install Python dependencies
           command: |
-            PYTHONPATH=. python -m pip install -e MonitoringManager || true
+            python -m pip install --upgrade pip
+            python -m pip install -r MonitoringManager/requirements_tests.txt
 
       - run:
           name: Run tests with JUnit output
