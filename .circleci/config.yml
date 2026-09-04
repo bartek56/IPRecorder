@@ -9,6 +9,11 @@ jobs:
       - checkout
 
       - run:
+          name: Init git submodules
+          command: |
+            git submodule update --init --recursive
+
+      - run:
           name: Install system build deps for GSMEngine
           command: |
             sudo apt-get update
