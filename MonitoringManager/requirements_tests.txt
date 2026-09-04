@@ -1,0 +1,6 @@
+opencv-python-headless
+numpy
+ultralytics
+sh
+pytest 
+pytest-cov
