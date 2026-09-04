@@ -35,6 +35,7 @@ jobs:
       - run:
           name: Build GSMApp
           command: |
+            cd GSMEngine
             cmake -S . -B build
             cmake --build build
 
@@ -45,12 +46,6 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/project
-
-      - run:
-          name: Build GSMApp
-          command: |
-            cmake -S . -B build
-            cmake --build build
 
       - run:
           name: Build GSMEngine
