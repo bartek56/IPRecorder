@@ -9,16 +9,28 @@ jobs:
       - checkout
 
       - run:
-          name: Install Python dependencies
+          name: Install system build deps for GSMEngine
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+
+      - run:
+          name: Install GSMEngine from local sibling project
           command: |
             python -m pip install --upgrade pip
+            cd GSMEngine
+            python -m pip install -e .
+
+      - run:
+          name: Install Python dependencies
+          command: |
             python -m pip install pytest pytest-cov opencv-python-headless numpy ultralytics
             if [ -f MonitoringManager/requirements.txt ]; then
               python -m pip install -r MonitoringManager/requirements.txt
             fi
 
       - run:
-          name: Install project package
+          name: Install MonitoringManager package
           command: |
             PYTHONPATH=. python -m pip install -e MonitoringManager || true
 
