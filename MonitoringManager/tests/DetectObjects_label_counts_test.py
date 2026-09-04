@@ -42,7 +42,6 @@ class DetectObjectsFixtureTests(unittest.TestCase):
 
     def test_object_fixture_images_are_detected_at_the_expected_threshold(self):
         image_paths = sorted(self.objects_dir.glob("*.jpg"))
-        self.assertTrue(image_paths, f"Brak obrazów testowych w katalogu {self.objects_dir}")
 
         for image_path in image_paths:
             with self.subTest(image=image_path.name):

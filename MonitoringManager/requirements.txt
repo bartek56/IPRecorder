@@ -1,2 +1,5 @@
 GSMEngine
+opencv-python-headless
+numpy
+ultralytics
 sh

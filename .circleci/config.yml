@@ -29,10 +29,8 @@ jobs:
       - run:
           name: Install Python dependencies
           command: |
-            python -m pip install pytest pytest-cov opencv-python-headless numpy ultralytics
-            if [ -f MonitoringManager/requirements.txt ]; then
-              python -m pip install -r MonitoringManager/requirements.txt
-            fi
+            python -m pip install pytest pytest-cov
+            python -m pip install -r MonitoringManager/requirements.txt
 
       - run:
           name: Install MonitoringManager package
