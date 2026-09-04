@@ -1,0 +1,49 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.11
+    working_directory: ~/project
+    steps:
+      - checkout
+
+      - run:
+          name: Install Python dependencies
+          command: |
+            python -m pip install --upgrade pip
+            python -m pip install pytest pytest-cov opencv-python-headless numpy ultralytics
+            if [ -f MonitoringManager/requirements.txt ]; then
+              python -m pip install -r MonitoringManager/requirements.txt
+            fi
+
+      - run:
+          name: Install project package
+          command: |
+            PYTHONPATH=. python -m pip install -e MonitoringManager || true
+
+      - run:
+          name: Run tests with JUnit output
+          command: |
+            mkdir -p test-results
+            PYTHONPATH=. pytest MonitoringManager/tests -q --junitxml=test-results/junit.xml
+
+      - run:
+          name: Run tests with coverage
+          command: |
+            mkdir -p coverage-results
+            PYTHONPATH=. pytest MonitoringManager/tests --cov=MonitoringManager --cov-report=term-missing --cov-report=xml:coverage-results/coverage.xml --cov-report=html:coverage-results/html
+
+      - store_test_results:
+          path: test-results
+
+      - store_artifacts:
+          path: |
+            test-results
+            coverage-results
+
+workflows:
+  version: 2
+  test_workflow:
+    jobs:
+      - test
