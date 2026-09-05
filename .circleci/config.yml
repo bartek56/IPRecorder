@@ -1,7 +1,9 @@
 version: 2.1
 
+orbs:
+  codecov: codecov/codecov@5
+
 jobs:
- 
   GSMApp:
     docker:
       - image: cimg/python:3.11
@@ -16,13 +18,13 @@ jobs:
             sudo apt-get install -y cmake python3-dev
 
       - run:
-          name: Build GSMApp by cmake      - checkout
+          name: Build GSMApp by cmake
           command: |
             git submodule update --init --recursive
             cd GSMEngine
             cmake -S . -B build
             cmake --build build
-         
+
       - run:
           name: Run UTs
           command: |
@@ -99,6 +101,11 @@ jobs:
             mkdir -p coverage-results
             PYTHONPATH=. pytest MonitoringManager/tests --cov=MonitoringManager --cov-report=term-missing --cov-report=xml:coverage-results/coverage.xml --cov-report=html:coverage-results/html
 
+      - codecov/upload:
+          file: coverage-results/coverage.xml
+          flags: MonitoringManager
+          fail_ci_if_error: true
+
       - store_test_results:
           path: test-results
 
@@ -110,7 +117,7 @@ jobs:
 
 workflows:
   version: 2
-  test_workflow:
+  IPRecorder:
     jobs:
       - GSMEnginelib
       - GSMApp
