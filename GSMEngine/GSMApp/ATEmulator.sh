@@ -14,7 +14,7 @@ fi
 
 if [[ $mode -eq 2 ]] ; then
     echo 'receive message'
-    echo -e "AT+CMGS=\"+48791942336\"\r\n" > ${SERIAL}
+    echo -e "AT+CMGS=\"+48123456789\"\r\n" > ${SERIAL}
     sleep 1
     echo -e ">" > $SERIAL
     sleep 1
@@ -28,12 +28,12 @@ fi
 
 if [[ $mode -eq 3 ]] ; then
     echo "send message and wait for response"
-    echo -e "+CMT: \"+48791942336\",,\"23/05/2025,12:00:00+00\"\r\n" > ${SERIAL}
+    echo -e "+CMT: \"+48123456789\",,\"23/05/2025,12:00:00+00\"\r\n" > ${SERIAL}
     sleep 1
     echo -e "$MESSAGE\r\n" > $SERIAL
     sleep 2
 
-    echo -e "AT+CMGS=\"+48791942336\"\r\n" > ${SERIAL}
+    echo -e "AT+CMGS=\"+48123456789\"\r\n" > ${SERIAL}
     sleep 1
     echo -e ">" > $SERIAL
     sleep 1

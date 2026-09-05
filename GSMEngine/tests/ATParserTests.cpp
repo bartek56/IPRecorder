@@ -30,10 +30,10 @@ TEST(ATParserTests, ParsesEmptySmsBody)
 
 TEST(ATParserTests, ParsesClipNumber)
 {
-    const auto number = AT::parseClipNumber("+CLIP: \"+48791942336\",145,,,\"\",0\r\n");
+    const auto number = AT::parseClipNumber("+CLIP: \"+48123456789\",145,,,\"\",0\r\n");
 
     ASSERT_TRUE(number.has_value());
-    EXPECT_EQ(*number, "+48791942336");
+    EXPECT_EQ(*number, "+48123456789");
 }
 
 TEST(ATMessageFramerTests, ReturnsMultipleMessagesFromOneRead)

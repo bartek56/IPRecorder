@@ -420,7 +420,7 @@ void ATCommanderScheduler::smsProcessing(const std::string &msg)
 
 void ATCommanderScheduler::callingProcessing(const std::string &msg)
 {
-    // +CLIP: "+48791942336",145,,,"",0
+    // +CLIP: "+48123456789",145,,,"",0
     auto number = parseClipNumber(msg);
     if(!number)
     {

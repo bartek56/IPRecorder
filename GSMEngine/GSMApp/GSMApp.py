@@ -18,9 +18,9 @@ def main():
     killer = Killer()
     gsm = lib.GSMManager("/dev/pts/3")
     gsm.initialize()
-    gsm.sendSms("+48791942336", "hello world")
+    gsm.sendSms("+48123456789", "hello world")
     print("after sync message")
-    #gsm.sendSmsSync("+48791942336", "hello world 2")
+    #gsm.sendSmsSync("+48123456789", "hello world 2")
     #print("after async message")
     while not killer.kill_now:
         sms = gsm.getSms()
