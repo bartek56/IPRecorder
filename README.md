@@ -2,6 +2,7 @@
 
 [![codecov](https://codecov.io/gh/bartek56/IPRecorder/branch/main/graph/badge.svg)](https://codecov.io/gh/bartek56/IPRecorder)
 
+
 # IpRecorder
 
 IPRecorder is a software to verify new image (created by IP Camera during moving) and inform by SMS about it
