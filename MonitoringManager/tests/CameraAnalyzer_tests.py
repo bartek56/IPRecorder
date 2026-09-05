@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -184,3 +185,48 @@ class CameraAnalyzerTests(TestCase):
         self.assertEqual(ca.alarmLevel, 0)
         self.assertFalse(ca.readyToNotify)
         self.mock_analyze_minute_dir.analyzeMinuteDir.assert_called_once()
+
+    def test_analyzeMoving_WithDetection_ReasonsIncluded(self):
+        # prepare a mock detector that returns one detection with a reason
+        mock_detect = MagicMock()
+        mock_detect.analyzeMinuteDir.return_value = [SimpleNamespace(reasons=['person']), SimpleNamespace(reasons=[])]
+
+        ca = CameraAnalyzer(
+            str(self.base),
+            "CAM",
+            str(self.log_file),
+            minNewFilesToDetect=1,
+            notificationBlockDuration=60,
+            detect_objects=mock_detect,
+        )
+
+        # create files to reach threshold
+        self._touch(self.day / "01.jpg")
+        self._touch(self.day / "02.jpg")
+
+        result = ca.analyzeMoving()
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.hasReasons)
+        self.assertIn('person', result.reasons)
+        mock_detect.analyzeMinuteDir.assert_called_once()
+
+    def test_analyzeMoving_ReturnsErrorWhenDiskMissing(self):
+        # point analyzer to a non-existing directory
+        missing_dir = str(self.base / "nonexistent")
+        mock_detect = MagicMock()
+
+        ca = CameraAnalyzer(
+            missing_dir,
+            "CAM",
+            str(self.log_file),
+            minNewFilesToDetect=1,
+            notificationBlockDuration=60,
+            detect_objects=mock_detect,
+        )
+
+        result = ca.analyzeMoving()
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.message, "Error with Disk")
+        self.assertTrue(result.hasReasons)
