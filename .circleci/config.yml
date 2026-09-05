@@ -105,6 +105,7 @@ jobs:
           files: coverage-results/coverage.xml
           flags: MonitoringManager
           fail_on_error: true
+          skip_validation: true
 
       - store_test_results:
           path: test-results
