@@ -1,45 +1,32 @@
 version: 2.1
 
 jobs:
-  prepare:
+ 
+  GSMApp:
     docker:
       - image: cimg/python:3.11
     working_directory: ~/project
     steps:
       - checkout
-
+    
       - run:
-          name: Init git submodules
-          command: |
-            git submodule update --init --recursive
-
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
-  
-  build_gsm_app:
-    docker:
-      - image: cimg/python:3.11
-    working_directory: ~/project
-    steps:
-      - attach_workspace:
-          at: ~/project
-
-      - run:
-          name: Install system build deps for GSMEngine
+          name: Install system build deps for GSMApp
           command: |
             sudo apt-get update
             sudo apt-get install -y cmake python3-dev
 
       - run:
-          name: Build GSMApp by cmake
+          name: Build GSMApp by cmake      - checkout
           command: |
+            git submodules update --init --recursive
             cd GSMEngine
             cmake -S . -B build
             cmake --build build
-            # Run CTest to execute tests
-            cd build
+         
+      - run:
+          name: Run UTs
+          command: |
+            cd GSMEngine/build
             ctest --output-on-failure || true
             # Produce GoogleTest XMLs for each test executable
             mkdir -p ../test-results/gsmengine
@@ -67,14 +54,13 @@ jobs:
       - store_artifacts:
           path: artifacts/gsmengine
 
-  build_gsm_engine:
+  GSMEnginelib:
     docker:
       - image: cimg/python:3.11
     working_directory: ~/project
     steps:
-      - attach_workspace:
-          at: ~/project
-
+      - checkout
+      
       - run:
           name: Install system build deps for GSMEngine
           command: |
@@ -87,13 +73,12 @@ jobs:
             cd GSMEngine
             python -m pip install -e .
 
-  unit_tests:
+  MonitoringManager:
     docker:
       - image: cimg/python:3.11
     working_directory: ~/project
     steps:
-      - attach_workspace:
-          at: ~/project
+      - checkout
 
       - run:
           name: Install Python dependencies
@@ -126,13 +111,6 @@ workflows:
   version: 2
   test_workflow:
     jobs:
-      - prepare
-      - build_gsm_app:
-          requires:
-            - prepare
-      - build_gsm_engine:
-          requires:
-            - prepare
-      - unit_tests:
-          requires:
-            - prepare
+      - GSMEngineLib
+      - GSMApp
+      - MonitoringManager
