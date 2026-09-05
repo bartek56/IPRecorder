@@ -18,7 +18,7 @@ jobs:
       - run:
           name: Build GSMApp by cmake      - checkout
           command: |
-            git submodules update --init --recursive
+            git submodule update --init --recursive
             cd GSMEngine
             cmake -S . -B build
             cmake --build build
@@ -70,6 +70,7 @@ jobs:
       - run:
           name: Build GSMEngine by pip
           command: |
+            git submodule update --init --recursive
             cd GSMEngine
             python -m pip install -e .
 
