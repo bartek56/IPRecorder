@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  codecov: codecov/codecov@5
-
 jobs:
   GSMApp:
     docker:
@@ -101,11 +98,12 @@ jobs:
             mkdir -p coverage-results
             PYTHONPATH=. pytest MonitoringManager/tests --cov=MonitoringManager --cov-report=term-missing --cov-report=xml:coverage-results/coverage.xml --cov-report=html:coverage-results/html
 
-      - codecov/upload:
-          files: coverage-results/coverage.xml
-          flags: MonitoringManager
-          fail_on_error: true
-          skip_validation: true
+      - run:
+          name: Upload coverage to Codecov
+          command: |
+            curl -Os https://uploader.codecov.io/latest/linux/codecov
+            chmod +x codecov
+            ./codecov -f coverage-results/coverage.xml -F MonitoringManager
 
       - store_test_results:
           path: test-results
