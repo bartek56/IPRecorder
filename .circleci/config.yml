@@ -117,7 +117,7 @@ jobs:
 
 workflows:
   version: 2
-  IPRecorder:
+  test_workflow:
     jobs:
       - GSMEnginelib
       - GSMApp
