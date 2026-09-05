@@ -102,9 +102,9 @@ jobs:
             PYTHONPATH=. pytest MonitoringManager/tests --cov=MonitoringManager --cov-report=term-missing --cov-report=xml:coverage-results/coverage.xml --cov-report=html:coverage-results/html
 
       - codecov/upload:
-          file: coverage-results/coverage.xml
+          files: coverage-results/coverage.xml
           flags: MonitoringManager
-          fail_ci_if_error: true
+          fail_on_error: true
 
       - store_test_results:
           path: test-results
