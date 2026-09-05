@@ -4,6 +4,7 @@ import os
 
 from .NotificationManager import NotificationManager
 from .CameraAnalyzer import CameraAnalyzer
+import GSMEngine as GSMSerial
 from .Logger import Logger
 from .Logger import LogLevel
 from . import Config as CONFIG
@@ -56,7 +57,7 @@ def main():
     Logger.settings(fileNameWihPath=CONFIG.LOGFile, saveToFile=False, showFilename=True, logLevel=LogLevel.INFO, print=True)
     Logger.INFO(" ---------------- Start Monitoring ------------------ ")
 
-    notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.GSMSerial, CONFIG.ADMIN_NUMBER)
+    notificationManager = NotificationManager(CONFIG.ACTIVE_USERS_FILE, CONFIG.CONTACTS_FILE, CONFIG.ADMIN_NUMBER, GSMSerial.GSMManager(CONFIG.GSMSerial))
 
     cameraAltanka = CameraAnalyzer(CONFIG.dirNameAltanka, "ALTANKA", CONFIG.ALARM_LOG_FILE, 2, 60.0)
     cameraBrama = CameraAnalyzer(CONFIG.dirNameBrama, "BRAMA", CONFIG.ALARM_LOG_FILE, 2, 60.0)

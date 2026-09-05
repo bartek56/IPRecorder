@@ -5,7 +5,6 @@ from .Contacts import Contacts
 from .StatusManager import IpRecorderStatus
 # from mailManager import Mail
 from .Logger import Logger
-import GSMEngine as GSMSerial
 
 
 class ActiveUser():
@@ -15,17 +14,33 @@ class ActiveUser():
 
 
 class NotificationManager():
-    def __init__(self, activeUsersFile, contactsFile, GSM_SERIAL, adminNumber):
+    def __init__(self, activeUsersFile, contactsFile, adminNumber, gsm_manager=None):
+        """
+        Initialize NotificationManager.
+
+        Args:
+            activeUsersFile: path to file with active users
+            contactsFile: path to contacts file
+            GSM_SERIAL: serial device string for GSM module (ignored if `gsm_manager` provided)
+            adminNumber: administrator phone number
+            gsm_manager: optional pre-initialized GSM manager instance (for testing/injection)
+        """
         self.adminNumber = adminNumber
         self.ipRecorderStatus = IpRecorderStatus()
-#        self.mailManager = Mail()
+        # self.mailManager = Mail()
         self.phoneContacts = Contacts(contactsFile)
         self.readyToSMS = False
-        self.gsmManager = GSMSerial.GSMManager(GSM_SERIAL)
-        if not self.gsmManager.initialize():
-            print("Initialization of GSM module was failed!")
-            #exit() # exception ?!
-        self.readyToSMS = True
+
+        # Allow dependency injection of GSM manager for tests. If not provided,
+        # attempt to create one from GSMEngine but fail gracefully if serial
+        # port is not available.
+        if gsm_manager is not None:
+            self.gsmManager = gsm_manager
+            if not self.gsmManager.initialize():
+                Logger.WARNING("Initialization of GSM module was failed!")
+            self.readyToSMS = True
+        else:
+            raise RuntimeError("GSM manager not provided; cannot initialize NotificationManager without GSM support.")
         self.usersList = []
         self.fileName = activeUsersFile
         if os.path.isfile(self.fileName):
@@ -41,10 +56,11 @@ class NotificationManager():
                     self.usersList.append(ActiveUser(name, surname))
 
     def is_alive(self):
-        return self.gsmManager.is_alive()
+        return self.gsmManager.is_alive() if self.gsmManager is not None else False
 
     def shutdown(self):
-        self.gsmManager.shutdown()
+        if self.gsmManager is not None:
+            self.gsmManager.shutdown()
 
     def showActiveContacts(self):
         for x in self.usersList:
@@ -112,10 +128,16 @@ class NotificationManager():
 
     def sendSMS(self, number, message):
         Logger.INFO(f"Send sms '{message}' to number {number}")
-        self.gsmManager.sendSms("+48"+number, message) # TODO
+        if self.gsmManager:
+            self.gsmManager.sendSms("+48" + number, message)  # TODO
+        else:
+            Logger.WARNING("GSM manager not initialized; SMS not sent")
 
     def sendSMSAdmin(self, message):
-        self.gsmManager.sendSms("+48"+self.adminNumber, message) # TODO
+        if self.gsmManager:
+            self.gsmManager.sendSms("+48"+self.adminNumber, message) # TODO
+        else:
+            Logger.WARNING("GSM manager not initialized; SMS not sent")
 
     def checkStatus(self):
         status = self.ipRecorderStatus.checkStatus()
